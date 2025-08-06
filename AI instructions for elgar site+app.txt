@@ -1,0 +1,84 @@
+Please do as follow and READ CAREFULLY ALL OF THIS MESSAGE !!!!!:
+
+1. create an AI_instructions.md for yourself, this will be your bounderies of what you can and CANT do.
+2. add to AI_instructions.md - NO DEMOS AT ALL, NO FALSE DATA, NO EXAMPLES (more will be added later on).
+3. create a file called MEMORY_BANK.md for you to keep updated after every phase we do and for yourself to know exatcly where we at and where we left off - add this rule to AI_instructions.md too.
+4. NEVER skip phases we need to do. - add to AI_instructions.md
+5. check yourself after every major modification we do in files - add to AI_instructions.md
+6. if you are not sure of something, ask me - add to AI_instructions.md
+7. scan carefully the whole workspace and directories and files to understand perfectly what are we doing here - IMPORTANT!!!!!!!
+8. this whole project should be in hebrew with RTL !! - add to AI_instructions.md
+
+now let's start working:
+
+REBUILD THE WHOLE PROJECT IN THE WORK SPACE INCLUDING DATABASE AS NEEDED TO SUPPORT BOTH THE APP AND THE WEBSITE:
+
+what i want you to do:
+
+i need a mobile phone (android) application for Elgar Unit and an admin panel website, the website can control 100% of the application.
+you should know by now what is the project we are working on.
+
+the application HAVE TO be synced with the website perfectly including same DataBase (supabase - credentials will be sent to you when you ask).
+
+the website can control 100% of the application.
+
+Users created on the website should be able to connect with their credentials on the appliacation.
+
+when creating a new user in the website it's creating by default with password: 123456, when a user is first loggin to the application the app is locked until the user is changing his password (and of course giving the user the abilty tro change his password immidietly.
+
+the roles that need to be in this whole project:
+
+Developer - מפתח
+admin - אדמין
+Unit Command - פיקוד יחידה
+Dispatch Manager - מפקד משל"ט
+Dispatcher - מוקדן
+Patrol - סייר
+
+Priviliges:
+
+Developer - any privilige there is since he dvelopes everything.
+admin - super user like the Developer.
+Unit Commander - Create Users, Delete Users, Modify Users, Create events, Delete events, Modify events, Watch logs, Watch Action Reports, Watch Statistics, Watch summry of events, users and events per user, events per user, Respond to events, write action reports.
+Dispatch Manager - Create events, Delete events, Modify events, Watch Statistics, Watch summry of events, users and events per user, events per user, Respond to events, write action reports.
+Dispatcher - Create events, Watch summry of events, users and events per user, events per user, Respond to events, write action reports.
+Patrol - Respond to events, write action reports.
+
+the app should do the following things:
+
+1. login (once) to the app (with "forgot my password" option, only after user write his full name and password he can change to a new password - no email requiere or sms)
+2. after login the app stays logged in to that user unless login out by the user or app is being deleted.
+3. normal users (סייר) can only have the active events (אירועים) and 5 last closed events.
+4. profile page which the user can change his name, phone number and password.
+5. live location of the user when he is logged in and in status "Available" (זמין)
+6. an option to change availabilty status (זמין, לא זמין) - when a user set "לא זמין" the live location is disabled.
+7. send push notifications to the users phone.
+8. user have a log out button (התנתק)
+9. everything a user does gets logged.
+10. Write Action Reports on each event the user is active on, after signing an action report, no edit is available and the report is sent for approval with the Unit command
+
+
+the website should do the following things:
+
+1. login page to the admin panel (credentials will be taken from the database joined to the app and not a new one)
+2. only managment roles (אדמין, מפקד יחידה, מנהל משלט, מוקדן) can login to the website, if a user (סייר) is trying to connect than he gets a message says: "כניסה לבעלי הרשאות בלבד !"
+3. a dashboard with the summry of active events, closed events, total available users, total unavailable users, action report pending to be examed by a super-role (אדמין, מפקד יחידה, מנהל משלט, מוקדן), avarge response time (base on real data by the users who's marking (יציאה - מקום - סיום).
+4. a menu with the following options: Users Managment, Action Reports, Events Managment, Response summry, Logs, Statistics.
+5. each role see what is in his priviliges and nothing else.
+6. no user at all can delete or modify the 'admin' user.
+7. in page user managment - 4 cards that says: available users (users with status: זמין), busy users (users the marked: יוצא or מקום on event), unavailable users (users with status: לא זמין), avarge response time.
+than a chart with the users and the abilty to search by name or phone number.
+8.  in page action reports: i should see 3 card: reports pending for approval by super-role, approved reports, summry of action reports.
+than a chart with the reports and the agbilty to search by date, status (approved, denied, need fix) date of creation, date of the event, name of the writter.
+9. in page Event managment - i should see all the events there is, filterd with open and closed events. with the button to create a new event. - when pressing on event i get the option to send the event to user by my choice from a list of available users and unavailable users.
+10. in the page response summry i can see a lsit of all the users and how many events they responded too, with filters options and filters of see that summry by day, month, year and such.
+11. in logs page i see *all* logs from the website and the app seperated by that, in order to be in control of what happend when and by who.
+12. statistics page - will display statistics about the events and users all at once with filters.
+13. application settings page - give me the ability to change the app as i wish including priviliges to users and roles. (still, admin user is the most powerfull user and now one but him can change or modify something about him).
+14. a "הודעות מערכת" page - gives me the abilty to send messages to a user that will be displayed on a puish notification and in the application of that users that i sent the message too.
+
+SYNCHROZATION:
+
+1. when a user, event, message is created in the website i want the application to get this info and send a push notification and show it on the applpication!
+2. when a new event is created it looks for the most 5 closest users (using their location in the applicatnin) and send a push notification to those users with the information: full address and event title only, with the three options: יוצא, מקום, לא זמין. Only after a user pressed "יוצא" he'll get the full details about that event, and the time he marked "יוצא" will be displpayed on the button "יוצא". and the information will be displayed on the event page on that same event.
+3. everything will be sync with the app and web all the time !

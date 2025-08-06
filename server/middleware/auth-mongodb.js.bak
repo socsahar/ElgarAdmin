@@ -1,0 +1,89 @@
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const Log = require('../models/Log');
+
+const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      await Log.createLog('warn', 'Authentication attempt without token', 'auth', {
+        request: {
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+          url: req.originalUrl
+        }
+      });
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const user = await User.findById(decoded.id).select('-password');
+    
+    if (!user) {
+      await Log.createLog('warn', 'Authentication with invalid user ID', 'auth', {
+        userId: decoded.id,
+        request: {
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      });
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    if (!user.isActive) {
+      await Log.createLog('warn', 'Authentication attempt by inactive user', 'auth', {
+        userId: user._id,
+        request: {
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      });
+      return res.status(401).json({ message: 'Account is deactivated' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    await Log.logError(error, 'auth', null, {
+      request: {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        url: req.originalUrl
+      }
+    });
+    res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+// Middleware to check if user is admin
+const adminOnly = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    Log.createLog('warn', 'Unauthorized admin access attempt', 'auth', {
+      userId: req.user._id,
+      userRole: req.user.role,
+      attemptedUrl: req.originalUrl
+    }, req.user._id);
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+};
+
+// Middleware to check if user is admin or dispatcher
+const dispatcherOrAdmin = (req, res, next) => {
+  if (!['admin', 'dispatcher'].includes(req.user.role)) {
+    Log.createLog('warn', 'Unauthorized dispatcher access attempt', 'auth', {
+      userId: req.user._id,
+      userRole: req.user.role,
+      attemptedUrl: req.originalUrl
+    }, req.user._id);
+    return res.status(403).json({ message: 'Dispatcher or admin access required' });
+  }
+  next();
+};
+
+module.exports = {
+  authMiddleware,
+  adminOnly,
+  dispatcherOrAdmin
+};

@@ -1,0 +1,26 @@
+{
+  "name": "elgar-admin-site",
+  "version": "1.0.0",
+  "description": "Complete Hebrew RTL Car Theft Tracking System with Action Reports and Analytics",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && nodemon index.js",
+    "client": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "start": "cd server && node index.js",
+    "postinstall": "cd client && npm install && cd ../server && npm install",
+    "build-client": "cd client && npm run build"
+  },
+  "keywords": ["car-theft", "tracking", "hebrew", "rtl", "admin", "panel", "elgar", "management"],
+  "author": "Sahar Malul",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
