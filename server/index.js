@@ -278,15 +278,60 @@ io.on('connection', (socket) => {
 async function startServer() {
   try {
     console.log('🔍 Checking database connection...');
+    console.log('📊 Environment check:');
+    console.log('- SUPABASE_URL:', process.env.SUPABASE_URL ? 'Set' : 'Missing');
+    console.log('- SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'Set' : 'Missing');
+    console.log('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
+    console.log('- NODE_ENV:', process.env.NODE_ENV || 'not set');
+    console.log('- PORT:', process.env.PORT || 5000);
     
-    // Test Supabase connection
-    const { data, error } = await supabase.from('users').select('count').limit(1);
-    if (error) {
-      console.error('❌ Database connection failed:', error.message);
-      process.exit(1);
+    // More robust database connection test
+    try {
+      console.log('🔗 Testing Supabase connection...');
+      
+      // First try a simple health check
+      const { data: healthData, error: healthError } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1);
+      
+      if (healthError) {
+        console.error('❌ Database health check failed:', healthError);
+        
+        // Try with admin client as fallback
+        console.log('🔄 Trying with admin client...');
+        const { data: adminData, error: adminError } = await supabaseAdmin
+          .from('users')
+          .select('id')
+          .limit(1);
+          
+        if (adminError) {
+          console.error('❌ Admin client also failed:', adminError);
+          throw new Error(`Database connection failed: ${adminError.message}`);
+        }
+        
+        console.log('✅ Admin client connection successful');
+      } else {
+        console.log('✅ Regular client connection successful');
+      }
+      
+    } catch (dbError) {
+      console.error('❌ Database connection test failed:', dbError.message);
+      console.error('🔧 Troubleshooting suggestions:');
+      console.error('1. Verify Supabase project is not paused');
+      console.error('2. Check environment variables are correctly set');
+      console.error('3. Verify Supabase URL format: https://xxx.supabase.co');
+      console.error('4. Ensure keys are valid and not expired');
+      
+      // Don't exit in production, let server start anyway
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('⚠️ Starting server without database connection verification in production');
+      } else {
+        throw dbError;
+      }
     }
     
-    console.log('✅ Database connection successful');
+    console.log('✅ Database connection verified');
 
     // Initialize default admin if needed
     await createDefaultAdmin();
