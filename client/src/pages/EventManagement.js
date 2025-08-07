@@ -69,6 +69,7 @@ const EventManagement = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [availableVolunteers, setAvailableVolunteers] = useState([]);
   const [selectedVolunteers, setSelectedVolunteers] = useState([]);
+  const [volunteerSearchTerm, setVolunteerSearchTerm] = useState('');
   const [closureReason, setClosureReason] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
@@ -188,6 +189,21 @@ const EventManagement = () => {
       // If API fails, set empty array
       setAvailableVolunteers([]);
     }
+  };
+
+  // Filter volunteers based on search term
+  const getFilteredVolunteers = () => {
+    if (!volunteerSearchTerm.trim()) {
+      return availableVolunteers;
+    }
+    
+    const searchLower = volunteerSearchTerm.toLowerCase();
+    return availableVolunteers.filter(volunteer => 
+      volunteer.name?.toLowerCase().includes(searchLower) ||
+      volunteer.full_name?.toLowerCase().includes(searchLower) ||
+      volunteer.username?.toLowerCase().includes(searchLower) ||
+      volunteer.role?.toLowerCase().includes(searchLower)
+    );
   };
 
   const handleCreateEvent = () => {
@@ -315,6 +331,9 @@ const EventManagement = () => {
 
   const handleAssignVolunteers = (event) => {
     setSelectedEvent(event);
+    
+    // Reset search term when opening dialog
+    setVolunteerSearchTerm('');
     
     console.log('Event data:', event);
     console.log('Assigned volunteers:', event.assigned_volunteers);
@@ -1002,9 +1021,28 @@ const EventManagement = () => {
 
             {/* Volunteers List - Right Side */}
             <Grid item xs={6}>
-              <Typography variant="h6" sx={{ mb: 1 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
                 רשימת מתנדבים
               </Typography>
+              
+              {/* Search Bar for Volunteers */}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="חפש מתנדב לפי שם, תפקיד או שם משתמש..."
+                value={volunteerSearchTerm}
+                onChange={(e) => setVolunteerSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />
+                }}
+                sx={{ 
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: '#f8f9fa'
+                  }
+                }}
+              />
+              
               {availableVolunteers.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
                   אמת לציבור מיקמון לאישור ביצועים
@@ -1014,8 +1052,21 @@ const EventManagement = () => {
                   </Typography>
                 </Typography>
               ) : (
-                <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-                  {availableVolunteers.map((volunteer) => (
+                <>
+                  {/* Search Results Count */}
+                  {volunteerSearchTerm.trim() && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                      {getFilteredVolunteers().length} מתוך {availableVolunteers.length} מתנדבים
+                    </Typography>
+                  )}
+                  
+                  {getFilteredVolunteers().length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                      {volunteerSearchTerm.trim() ? 'לא נמצאו מתנדבים התואמים לחיפוש' : 'אין מתנדבים זמינים'}
+                    </Typography>
+                  ) : (
+                    <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+                      {getFilteredVolunteers().map((volunteer) => (
                     <ListItem key={volunteer.id} disablePadding>
                       <FormControlLabel
                         control={
@@ -1052,6 +1103,8 @@ const EventManagement = () => {
                     </ListItem>
                   ))}
                 </List>
+                )}
+                </>
               )}
             </Grid>
           </Grid>
@@ -1060,6 +1113,7 @@ const EventManagement = () => {
           <Button onClick={() => {
             setOpenAssignDialog(false);
             setSelectedVolunteers([]);
+            setVolunteerSearchTerm('');
           }}>
             ביטול
           </Button>
