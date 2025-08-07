@@ -84,7 +84,7 @@ const Profile = () => {
 
   const handleSaveCarStatus = async (hasCar) => {
     try {
-      const response = await api.put('/auth/profile', {
+      const response = await api.put('/api/auth/profile', {
         has_car: hasCar
       });
       
@@ -102,7 +102,7 @@ const Profile = () => {
 
   const handleSaveCarInfo = async () => {
     try {
-      const response = await api.put('/auth/profile', {
+      const response = await api.put('/api/auth/profile', {
         has_car: profileData.has_car,
         car_type: profileData.car_type,
         license_plate: profileData.license_plate,
@@ -135,7 +135,7 @@ const Profile = () => {
     }
 
     try {
-      const response = await api.put('/auth/change-password', {
+      const response = await api.put('/api/auth/change-password', {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });

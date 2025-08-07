@@ -63,8 +63,8 @@ const ImageUpload = ({
 
       // Upload to server using api instance
       const uploadUrl = userId 
-        ? `/upload/profile-photo?userId=${encodeURIComponent(userId)}`
-        : '/upload/profile-photo';
+        ? `/api/upload/profile-photo?userId=${encodeURIComponent(userId)}`
+        : '/api/upload/profile-photo';
         
       const response = await api.post(uploadUrl, formData, {
         headers: {
@@ -100,7 +100,7 @@ const ImageUpload = ({
       const deleteTarget = userId || value;
       
       // Delete from server using api instance
-      await api.delete(`/upload/profile-photo/${deleteTarget}`);
+      await api.delete(`/api/upload/profile-photo/${deleteTarget}`);
 
       // Clear preview and value
       setPreview(null);

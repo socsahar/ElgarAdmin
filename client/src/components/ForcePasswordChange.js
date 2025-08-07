@@ -58,7 +58,7 @@ const ForcePasswordChange = ({ open, onPasswordChanged }) => {
 
     setLoading(true);
     try {
-      const response = await api.put('/auth/change-password', {
+      const response = await api.put('/api/auth/change-password', {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });

@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       // Verify token and get user info
-      api.get('/auth/me')
+      api.get('/api/auth/me')
         .then(response => {
           setUser(response.data.user);
         })
@@ -42,9 +42,9 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('AuthContext: Making login request to backend API');
       console.log('AuthContext: API base URL:', api.defaults.baseURL);
-      console.log('AuthContext: Full URL will be:', api.defaults.baseURL + '/auth/login');
+      console.log('AuthContext: Full URL will be:', api.defaults.baseURL + '/api/auth/login');
       
-      const response = await api.post('/auth/login', { username, password });
+      const response = await api.post('/api/auth/login', { username, password });
       console.log('AuthContext: Login response:', response.data);
       
       const { token, user: userData } = response.data;
@@ -82,7 +82,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
+      await api.post('/api/auth/logout');
     } catch (error) {
       console.warn('Logout API call failed:', error);
       // Continue with logout even if API call fails
