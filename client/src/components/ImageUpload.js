@@ -78,9 +78,9 @@ const ImageUpload = ({
       const previewUrl = URL.createObjectURL(file);
       setPreview(previewUrl);
       
-      // Call onChange with the server filename
-      // If userId was provided, the filename will be the ID-based name
-      onChange(data.data.filename);
+      // Call onChange with the full Supabase URL instead of just filename
+      // This ensures the correct URL is saved to the database
+      onChange(data.data.url);
       
     } catch (err) {
       console.error('Upload error:', err);
