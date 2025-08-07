@@ -46,7 +46,13 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analytics, setAnalytics] = useState({
-    summary: {},
+    summary: {
+      totalEvents: 0,
+      resolvedEvents: 0,
+      activeEvents: 0,
+      avgResponseTime: 0,
+      resolutionRate: 0
+    },
     incidentStats: [],
     responseTimeData: [],
     volunteerActivity: [],
@@ -79,7 +85,13 @@ const Analytics = () => {
       }
       // Set empty data structure instead of mock data
       setAnalytics({
-        summary: {},
+        summary: {
+          totalEvents: 0,
+          resolvedEvents: 0,
+          activeEvents: 0,
+          avgResponseTime: 0,
+          resolutionRate: 0
+        },
         incidentStats: [],
         responseTimeData: [],
         volunteerActivity: [],
@@ -180,7 +192,7 @@ const Analytics = () => {
         )}
 
         {/* Summary Statistics */}
-        {analytics.summary && Object.keys(analytics.summary).length > 0 && (
+        {analytics?.summary && Object.keys(analytics.summary || {}).length > 0 && (
           <>
             <Grid item xs={12} sm={6} md={3}>
               <Card>
@@ -191,7 +203,7 @@ const Analytics = () => {
                         סה״כ אירועים
                       </Typography>
                       <Typography variant="h4">
-                        {analytics.summary.totalEvents || 0}
+                        {analytics?.summary?.totalEvents || 0}
                       </Typography>
                     </Box>
                     <TrendingUpIcon sx={{ fontSize: 40, color: 'primary.main' }} />
@@ -209,10 +221,10 @@ const Analytics = () => {
                         אירועים פתורים
                       </Typography>
                       <Typography variant="h4">
-                        {analytics.summary.resolvedEvents || 0}
+                        {analytics?.summary?.resolvedEvents || 0}
                       </Typography>
                       <Typography variant="body2" color="success.main">
-                        {analytics.summary.resolutionRate}% פתרון
+                        {analytics?.summary?.resolutionRate || 0}% פתרון
                       </Typography>
                     </Box>
                     <AssessmentIcon sx={{ fontSize: 40, color: 'success.main' }} />
@@ -230,7 +242,7 @@ const Analytics = () => {
                         אירועים פעילים
                       </Typography>
                       <Typography variant="h4">
-                        {analytics.summary.activeEvents || 0}
+                        {analytics?.summary?.activeEvents || 0}
                       </Typography>
                     </Box>
                     <TimelineIcon sx={{ fontSize: 40, color: 'warning.main' }} />
@@ -248,7 +260,7 @@ const Analytics = () => {
                         זמן תגובה ממוצע
                       </Typography>
                       <Typography variant="h4">
-                        {analytics.summary.avgResponseTime || 0}
+                        {analytics?.summary?.avgResponseTime || 0}
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
                         דקות
@@ -270,13 +282,13 @@ const Analytics = () => {
                 <TimelineIcon sx={{ mr: 1 }} />
                 מגמות אירועים
               </Typography>
-              {analytics.incidentStats.length === 0 ? (
+              {(analytics?.incidentStats || []).length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
                   <Typography>אין נתונים זמינים לתקופה הנבחרת</Typography>
                 </Box>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={analytics.incidentStats}>
+                  <LineChart data={analytics?.incidentStats || []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
@@ -317,7 +329,7 @@ const Analytics = () => {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 סוגי אירועים מובילים
               </Typography>
-              {analytics.topIncidentTypes.length === 0 ? (
+              {(analytics?.topIncidentTypes || []).length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
                   <Typography>אין נתונים זמינים</Typography>
                 </Box>
@@ -325,7 +337,7 @@ const Analytics = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={analytics.topIncidentTypes}
+                      data={analytics?.topIncidentTypes || []}
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
@@ -333,7 +345,7 @@ const Analytics = () => {
                       dataKey="value"
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     >
-                      {analytics.topIncidentTypes.map((entry, index) => (
+                      {(analytics?.topIncidentTypes || []).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -353,7 +365,7 @@ const Analytics = () => {
                 זמני תגובה ממוצעים
               </Typography>
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={analytics.responseTimeData}>
+                <BarChart data={analytics?.responseTimeData || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -375,7 +387,7 @@ const Analytics = () => {
                 פעילות מתנדבים
               </Typography>
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={analytics.volunteerActivity}>
+                <LineChart data={analytics?.volunteerActivity || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -414,8 +426,8 @@ const Analytics = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {analytics.recentActivity && analytics.recentActivity.length > 0 ? (
-                      analytics.recentActivity.map((activity) => (
+                    {analytics?.recentActivity && (analytics?.recentActivity || []).length > 0 ? (
+                      (analytics?.recentActivity || []).map((activity) => (
                         <TableRow key={activity.id}>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
