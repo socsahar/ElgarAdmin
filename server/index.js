@@ -286,10 +286,10 @@ io.on('connection', (socket) => {
   // Handle manual request for online users
   socket.on('get-online-users', () => {
     try {
-      console.log('📡 Client requesting online users list');
+      // console.log('📡 Client requesting online users list'); // Commented out to reduce spam
       const onlineUsersList = Array.from(onlineUsers.values());
       socket.emit('online-users-updated', onlineUsersList);
-      console.log(`📤 Sent ${onlineUsersList.length} online users to client`);
+      // console.log(`📤 Sent ${onlineUsersList.length} online users to client`); // Commented out to reduce spam
     } catch (error) {
       console.error('Error sending online users:', error);
     }

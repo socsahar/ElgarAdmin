@@ -69,30 +69,32 @@ function Dashboard() {
 
   // Request online users when component mounts or socket becomes ready
   useEffect(() => {
-    const timeouts = [100, 500, 1000]; // Multiple attempts with delays
-    
-    timeouts.forEach((delay) => {
-      setTimeout(() => {
-        if (socket && connected) {
-          console.log(`🚀 Requesting online users (attempt after ${delay}ms)`);
-          requestOnlineUsers();
-        }
-      }, delay);
-    });
-  }, [socket, connected, requestOnlineUsers]);
+    // Simple single request when socket is ready
+    if (socket && connected) {
+      console.log('🚀 Requesting online users (dashboard mount)');
+      requestOnlineUsers();
+    }
+  }, [socket, connected]); // Removed requestOnlineUsers from deps to prevent loops
 
-  // Set up visibility and focus handlers for refresh
+  // Set up visibility and focus handlers for refresh (with throttling)
   useEffect(() => {
+    let lastRefreshTime = 0;
+    const THROTTLE_MS = 5000; // Don't refresh more than once every 5 seconds
+
     const handleVisibilityChange = () => {
-      if (!document.hidden && socket && connected) {
-        console.log('👁️ Page became visible, refreshing online users');
+      const now = Date.now();
+      if (!document.hidden && socket && connected && (now - lastRefreshTime) > THROTTLE_MS) {
+        console.log('👁️ Page became visible, refreshing online users (throttled)');
+        lastRefreshTime = now;
         requestOnlineUsers();
       }
     };
 
     const handleFocus = () => {
-      if (socket && connected) {
-        console.log('🎯 Window gained focus, refreshing online users');
+      const now = Date.now();
+      if (socket && connected && (now - lastRefreshTime) > THROTTLE_MS) {
+        console.log('🎯 Window gained focus, refreshing online users (throttled)');
+        lastRefreshTime = now;
         requestOnlineUsers();
       }
     };
@@ -106,7 +108,7 @@ function Dashboard() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [socket, connected, requestOnlineUsers]);
+  }, [socket, connected]); // Removed requestOnlineUsers from deps
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -319,10 +321,12 @@ function Dashboard() {
       
       if (response.data.success) {
         console.log('Cleanup successful:', response.data);
-        // Automatically refresh the online users list
-        if (requestOnlineUsers) {
-          requestOnlineUsers();
-        }
+        // Wait a bit before refreshing to avoid spam
+        setTimeout(() => {
+          if (requestOnlineUsers) {
+            requestOnlineUsers();
+          }
+        }, 1000);
       }
     } catch (error) {
       console.error('Error cleaning up online users:', error);
@@ -335,10 +339,12 @@ function Dashboard() {
     if (socket) {
       socket.emit('online-users-updated', []);
     }
-    // Force refresh from server
-    if (requestOnlineUsers) {
-      requestOnlineUsers();
-    }
+    // Wait a bit before refreshing to avoid spam
+    setTimeout(() => {
+      if (requestOnlineUsers) {
+        requestOnlineUsers();
+      }
+    }, 1000);
   };
 
   if (loading) {
