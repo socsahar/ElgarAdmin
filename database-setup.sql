@@ -648,7 +648,7 @@ $$ language plpgsql;
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'permission_type') THEN
-        -- Create new enum with all permissions
+        -- Create new enum with all permissions including vehicle permissions
         CREATE TYPE permission_type AS ENUM (
             'access_users_crud',
             'access_events_crud', 
@@ -663,11 +663,17 @@ BEGIN
             'view_users_info',
             'view_events_list',
             'manage_own_action_reports',
-            'view_own_summaries'
+            'view_own_summaries',
+            'vehicle_search_access',
+            'vehicle_manage_permissions',
+            'vehicle_delegate_permissions'
         );
-        RAISE NOTICE '✅ Created permission_type enum with all permissions';
+        RAISE NOTICE '✅ Created permission_type enum with all permissions including vehicle permissions';
     END IF;
 END $$;
+
+-- Commit the enum creation before proceeding
+COMMIT;
 
 -- Add missing permissions to existing enum (separate transactions for safety)
 DO $$ 
@@ -682,6 +688,7 @@ BEGIN
         RAISE NOTICE '✅ Added permission: גישה לאתר';
     END IF;
 END $$;
+COMMIT;
 
 DO $$ 
 BEGIN
@@ -695,6 +702,7 @@ BEGIN
         RAISE NOTICE '✅ Added permission: view_dashboard_events';
     END IF;
 END $$;
+COMMIT;
 
 DO $$ 
 BEGIN
@@ -708,6 +716,7 @@ BEGIN
         RAISE NOTICE '✅ Added permission: view_users_info';
     END IF;
 END $$;
+COMMIT;
 
 DO $$ 
 BEGIN
@@ -721,6 +730,7 @@ BEGIN
         RAISE NOTICE '✅ Added permission: view_events_list';
     END IF;
 END $$;
+COMMIT;
 
 DO $$ 
 BEGIN
@@ -734,6 +744,7 @@ BEGIN
         RAISE NOTICE '✅ Added permission: manage_own_action_reports';
     END IF;
 END $$;
+COMMIT;
 
 DO $$ 
 BEGIN
@@ -747,6 +758,7 @@ BEGIN
         RAISE NOTICE '✅ Added permission: view_own_summaries';
     END IF;
 END $$;
+COMMIT;
 
 DO $$ 
 BEGIN
@@ -760,6 +772,7 @@ BEGIN
         RAISE NOTICE '✅ Added permission: can_connect_to_website';
     END IF;
 END $$;
+COMMIT;
 
 DO $$ 
 BEGIN
@@ -773,6 +786,49 @@ BEGIN
         RAISE NOTICE '✅ Added permission: access_events_delete';
     END IF;
 END $$;
+COMMIT;
+
+DO $$ 
+BEGIN
+    -- Add vehicle_search_access if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum 
+        WHERE enumlabel = 'vehicle_search_access' 
+        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'permission_type')
+    ) THEN
+        ALTER TYPE permission_type ADD VALUE 'vehicle_search_access';
+        RAISE NOTICE '✅ Added permission: vehicle_search_access';
+    END IF;
+END $$;
+COMMIT;
+
+DO $$ 
+BEGIN
+    -- Add vehicle_manage_permissions if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum 
+        WHERE enumlabel = 'vehicle_manage_permissions' 
+        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'permission_type')
+    ) THEN
+        ALTER TYPE permission_type ADD VALUE 'vehicle_manage_permissions';
+        RAISE NOTICE '✅ Added permission: vehicle_manage_permissions';
+    END IF;
+END $$;
+COMMIT;
+
+DO $$ 
+BEGIN
+    -- Add vehicle_delegate_permissions if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum 
+        WHERE enumlabel = 'vehicle_delegate_permissions' 
+        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'permission_type')
+    ) THEN
+        ALTER TYPE permission_type ADD VALUE 'vehicle_delegate_permissions';
+        RAISE NOTICE '✅ Added permission: vehicle_delegate_permissions';
+    END IF;
+END $$;
+COMMIT;
 
 -- Create user permissions table
 CREATE TABLE IF NOT EXISTS public.user_permissions (
@@ -858,7 +914,10 @@ INSERT INTO public.role_default_permissions (role, permission, is_default) VALUE
 ('מפתח', 'access_action_reports', true),
 ('מפתח', 'manage_own_action_reports', true),
 ('מפתח', 'view_own_summaries', true),
-('מפתח', 'can_modify_privileges', true)
+('מפתח', 'can_modify_privileges', true),
+('מפתח', 'vehicle_search_access', true),
+('מפתח', 'vehicle_manage_permissions', true),
+('מפתח', 'vehicle_delegate_permissions', true)
 ON CONFLICT (role, permission) DO NOTHING;
 
 -- אדמין (Admin) - All permissions except can't modify מפתח privileges
@@ -876,7 +935,10 @@ INSERT INTO public.role_default_permissions (role, permission, is_default) VALUE
 ('אדמין', 'access_action_reports', true),
 ('אדמין', 'manage_own_action_reports', true),
 ('אדמין', 'view_own_summaries', true),
-('אדמין', 'can_modify_privileges', true)
+('אדמין', 'can_modify_privileges', true),
+('אדמין', 'vehicle_search_access', true),
+('אדמין', 'vehicle_manage_permissions', true),
+('אדמין', 'vehicle_delegate_permissions', true)
 ON CONFLICT (role, permission) DO NOTHING;
 
 -- פיקוד יחידה (Unit Command) - Like מפקד משל"ט + Full user control (except אדמין/מפתח roles)
@@ -928,7 +990,8 @@ INSERT INTO public.role_default_permissions (role, permission, is_default) VALUE
 ('סייר', 'can_connect_to_website', true),
 ('סייר', 'view_dashboard_events', true),
 ('סייר', 'view_users_info', true),
-('סייר', 'manage_own_action_reports', true)
+('סייר', 'manage_own_action_reports', true),
+('סייר', 'vehicle_search_access', true)
 ON CONFLICT (role, permission) DO NOTHING;
 
 -- They can only view events and users (basic info only)
@@ -1132,7 +1195,10 @@ CROSS JOIN (
     ('view_events_list'),
     ('view_users_info'),
     ('manage_own_action_reports'),
-    ('view_own_summaries')
+    ('view_own_summaries'),
+    ('vehicle_search_access'),
+    ('vehicle_manage_permissions'),
+    ('vehicle_delegate_permissions')
 ) AS p(permission)
 WHERE u.role = 'מפתח'
 AND NOT EXISTS (
@@ -1158,7 +1224,10 @@ CROSS JOIN (
     ('view_events_list'),
     ('view_users_info'),
     ('manage_own_action_reports'),
-    ('view_own_summaries')
+    ('view_own_summaries'),
+    ('vehicle_search_access'),
+    ('vehicle_manage_permissions'),
+    ('vehicle_delegate_permissions')
 ) AS p(permission)
 WHERE u.role = 'אדמין'
 AND NOT EXISTS (
@@ -1167,10 +1236,110 @@ AND NOT EXISTS (
     AND up.permission = p.permission::permission_type
 );
 
+-- ============================================================================
+-- MIGRATION: Add vehicle permissions to all existing users by role
+-- ============================================================================
+
+-- Add vehicle permissions to existing מפתח users
+INSERT INTO public.user_permissions (user_id, permission, is_active, granted_by_id, granted_at)
+SELECT 
+    u.id,
+    p.permission::permission_type,
+    true,
+    u.id, -- Self-granted for system update
+    NOW()
+FROM public.users u
+CROSS JOIN (
+    VALUES 
+    ('vehicle_search_access'),
+    ('vehicle_manage_permissions'),
+    ('vehicle_delegate_permissions')
+) AS p(permission)
+WHERE u.role = 'מפתח'
+AND NOT EXISTS (
+    SELECT 1 FROM public.user_permissions up 
+    WHERE up.user_id = u.id 
+    AND up.permission = p.permission::permission_type
+);
+
+-- Add vehicle permissions to existing אדמין users
+INSERT INTO public.user_permissions (user_id, permission, is_active, granted_by_id, granted_at)
+SELECT 
+    u.id,
+    p.permission::permission_type,
+    true,
+    u.id, -- Self-granted for system update
+    NOW()
+FROM public.users u
+CROSS JOIN (
+    VALUES 
+    ('vehicle_search_access'),
+    ('vehicle_manage_permissions'),
+    ('vehicle_delegate_permissions')
+) AS p(permission)
+WHERE u.role = 'אדמין'
+AND NOT EXISTS (
+    SELECT 1 FROM public.user_permissions up 
+    WHERE up.user_id = u.id 
+    AND up.permission = p.permission::permission_type
+);
+
+-- Add vehicle search access to existing סייר users
+INSERT INTO public.user_permissions (user_id, permission, is_active, granted_by_id, granted_at)
+SELECT 
+    u.id,
+    'vehicle_search_access',
+    true,
+    u.id, -- Self-granted for system update
+    NOW()
+FROM public.users u
+WHERE u.role = 'סייר'
+AND NOT EXISTS (
+    SELECT 1 FROM public.user_permissions up 
+    WHERE up.user_id = u.id 
+    AND up.permission = 'vehicle_search_access'
+);
+
 -- Add comments for closure fields
 COMMENT ON COLUMN public.events.closure_reason IS 'סיבת סגירת האירוע';
 COMMENT ON COLUMN public.events.closed_at IS 'תאריך וזמן סגירת האירוע';
 COMMENT ON COLUMN public.events.closed_by_id IS 'המשתמש שסגר את האירוע';
+
+-- 🔒 PERMISSION PROTECTION SYSTEM
+-- Create function to prevent unauthorized permissions for סייר users
+CREATE OR REPLACE FUNCTION prevent_unauthorized_saiyer_permissions()
+RETURNS TRIGGER AS $$
+DECLARE
+    user_role TEXT;
+    unauthorized_permissions TEXT[] := ARRAY[
+        'view_events_list',
+        'access_summaries', 
+        'view_own_summaries',
+        'access_analytics',
+        'can_modify_privileges',
+        'access_events_crud'
+    ];
+BEGIN
+    -- Get user role
+    SELECT role INTO user_role FROM public.users WHERE id = NEW.user_id;
+    
+    -- If user is סייר and trying to get unauthorized permission, block it
+    IF user_role = 'סייר' AND NEW.permission::text = ANY(unauthorized_permissions) THEN
+        RAISE EXCEPTION 'Cannot grant permission "%" to סייר users. This permission is not authorized for volunteers.', NEW.permission;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to enforce this rule
+DROP TRIGGER IF EXISTS trigger_prevent_unauthorized_saiyer_permissions ON public.user_permissions;
+CREATE TRIGGER trigger_prevent_unauthorized_saiyer_permissions
+    BEFORE INSERT OR UPDATE ON public.user_permissions
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_unauthorized_saiyer_permissions();
+
+RAISE NOTICE '🔒 Permission protection system installed - prevents unauthorized permissions for סייר users';
 
 -- Final verification message
 DO $$
@@ -1187,13 +1356,22 @@ BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '✅ PERMISSIONS SYSTEM:';
     RAISE NOTICE '   • Role hierarchy with 6-level Hebrew roles';
-    RAISE NOTICE '   • Granular permissions (6 permission types)';
+    RAISE NOTICE '   • Granular permissions (17 permission types including vehicle permissions)';
+    RAISE NOTICE '   • Vehicle permissions: search access, manage permissions, delegate permissions';
+    RAISE NOTICE '   • Permission delegation system for מפתח to grant vehicle management rights';
     RAISE NOTICE '   • Automatic permission assignment triggers';
     RAISE NOTICE '   • Helper functions for permission checking';
     RAISE NOTICE '   • Existing users updated with role permissions';
+    RAISE NOTICE '   • 🔒 Protection against unauthorized סייר permissions';
+    RAISE NOTICE '';
+    RAISE NOTICE '🚗 VEHICLE PERMISSION SYSTEM:';
+    RAISE NOTICE '   • vehicle_search_access: Access to vehicle search (שאילתא)';
+    RAISE NOTICE '   • vehicle_manage_permissions: Full vehicle admin rights';
+    RAISE NOTICE '   • vehicle_delegate_permissions: Grant vehicle permissions to others';
+    RAISE NOTICE '   • Three-tier system: מפתח → delegation users → regular users';
     RAISE NOTICE '';
     RAISE NOTICE '🔐 DEFAULT LOGIN: username="admin", password="admin123"';
     RAISE NOTICE '⚡ READY FOR: Production deployment and user training';
     RAISE NOTICE '';
-    RAISE NOTICE '🚀 SYSTEM STATUS: FULLY OPERATIONAL WITH COMPREHENSIVE PERMISSIONS!';
+    RAISE NOTICE '🚀 SYSTEM STATUS: FULLY OPERATIONAL WITH VEHICLE DELEGATION SYSTEM!';
 END $$;

@@ -26,6 +26,7 @@ import Statistics from './pages/Statistics';
 import SystemMessages from './pages/SystemMessages';
 import OutRecords from './pages/OutRecords';
 import Summaries from './pages/Summaries';
+import VehicleSearch from './pages/VehicleSearch';
 
 // Basic Protected Route component for authentication-only protection
 const AuthProtectedRoute = ({ children }) => {
@@ -209,6 +210,14 @@ function App() {
             element={
               <ProtectedRoute permission={["access_summaries", "view_own_summaries"]}>
                 <Summaries />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="vehicle-search" 
+            element={
+              <ProtectedRoute permission={["vehicle_use_system", "vehicle_search_access"]}>
+                <VehicleSearch />
               </ProtectedRoute>
             } 
           />

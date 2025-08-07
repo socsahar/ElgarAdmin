@@ -24,7 +24,8 @@ const createLog = async (level, message, metadata = {}, userId = null) => {
 
 // Middleware to check admin privileges
 const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin') {
+  const adminRoles = ['אדמין', 'מפתח', 'admin']; // Include Hebrew and English admin roles
+  if (!adminRoles.includes(req.user.role)) {
     return res.status(403).json({ message: 'Admin access required' });
   }
   next();
@@ -42,7 +43,9 @@ const requireSuperRole = (req, res, next) => {
 // Middleware to check permission management access
 const requirePermissionManagement = (req, res, next) => {
   const user = req.user;
-  if (user.role !== 'admin' && (!user.permissions || !user.permissions.canManageUsers)) {
+  const managementRoles = ['אדמין', 'מפתח', 'admin']; // Include Hebrew and English admin roles
+  
+  if (!managementRoles.includes(user.role) && (!user.permissions || !user.permissions.canManageUsers)) {
     return res.status(403).json({ message: 'Permission management access required' });
   }
   next();
@@ -64,7 +67,7 @@ router.get('/users', auth, requirePermissionManagement, async (req, res) => {
   try {
     const { data: users, error } = await supabaseAdmin
       .from('users')
-      .select('id, username, full_name, role, phone_number, is_active, created_at, updated_at')
+      .select('id, id_number, username, full_name, role, phone_number, is_active, photo_url, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -75,13 +78,15 @@ router.get('/users', auth, requirePermissionManagement, async (req, res) => {
       success: true,
       users: users.map(user => ({
         id: user.id,
-        name: user.full_name,
+        id_number: user.id_number,
+        full_name: user.full_name,
         username: user.username,
         role: user.role,
-        phone: user.phone_number,
-        isActive: user.is_active,
-        createdAt: user.created_at,
-        lastLogin: user.updated_at
+        phone_number: user.phone_number,
+        photo_url: user.photo_url,
+        is_active: user.is_active,
+        created_at: user.created_at,
+        updated_at: user.updated_at
       }))
     });
   } catch (error) {

@@ -1,6 +1,69 @@
 # 🧠 ELGAR CAR THEFT TRACKING SYSTEM - COMPLETE MEMORY BANK
 
-**Last Updated**: August 6, 2025 - **🎉 PROJECT COMPLETED - PRODUCTION READY**
+**Last Updated**: August 7, 2025 - **🔧 CRITICAL PERMISSION BUG FIX**
+
+---
+
+## 🚨 **CRITICAL BUG FIX - AUGUST 7, 2025** ✅ **RESOLVED**
+
+### **🐛 PERMISSION LEAK BUG FIXED SUCCESSFULLY**
+
+**ISSUE IDENTIFIED**: Users with role "סייר" were seeing navigation menu items for pages they shouldn't have access to:
+- אירועים (Events) - requires 'view_events_list' permission
+- סיכומים (Summaries) - requires 'access_summaries' or 'view_own_summaries' permission
+
+**ROOT CAUSE**: 
+1. Layout.js navigation filtering had inconsistent permission checking compared to App.js route protection
+2. Database had individual user permissions that overrode role defaults
+3. Supabase query issues in vehicle system due to ambiguous foreign key relationships
+
+**✅ FIXES APPLIED & VERIFIED**:
+
+1. **Database Permission Cleanup**:
+   - ✅ Removed all unauthorized permissions from existing סייר users
+   - ✅ Verified: 0 unauthorized permissions remain in database
+   - ✅ Cleaned role default permissions to prevent future issues
+
+2. **Database Protection System**:
+   - ✅ Installed protective trigger `prevent_unauthorized_saiyer_permissions()`
+   - ✅ Automatically blocks unauthorized permission grants to סייר users
+   - ✅ Future-proof against accidental permission escalation
+
+3. **Frontend Navigation Fix**:
+   - ✅ Fixed Layout.js navigation filtering logic
+   - ✅ Removed special case handling that bypassed permission checks
+   - ✅ Updated summaries menu item to use proper array permissions
+   - ✅ Ensured consistent permission checking between Layout.js and App.js
+
+4. **Backend Query Fix**:
+   - ✅ Fixed Supabase query ambiguity in vehicle system
+   - ✅ Specified correct foreign key relationship: `user_permissions_user_id_fkey`
+   - ✅ Added null checking for users without permissions
+   - ✅ Resolved "Could not embed because more than one relationship was found" error
+
+**📋 VERIFIED WORKING - CORRECT NAVIGATION FOR סייר USERS**:
+Users with role "סייר" now only see these menu items:
+- ✅ לוח בקרה (Dashboard) - has 'view_dashboard_events'
+- ✅ משתמשים (Users) - has 'view_users_info' 
+- ✅ דוחות פעולה (Action Reports) - has 'manage_own_action_reports'
+- ✅ שאילתא (Vehicle Search) - has 'vehicle_search_access'
+- ❌ אירועים (Events) - missing 'view_events_list' ✓ BLOCKED
+- ❌ אנליטיקה (Analytics) - missing 'access_analytics' ✓ BLOCKED
+- ❌ סיכומים (Summaries) - missing both required permissions ✓ BLOCKED
+- ❌ הגדרות (Settings) - missing 'can_modify_privileges' ✓ BLOCKED
+
+**🔧 FILES MODIFIED**:
+- `client/src/components/Layout.js` - Fixed navigation permission filtering logic
+- `server/routes/vehicles.js` - Fixed Supabase query relationships
+- `fix-saiyer-permissions-simple.sql` - Database cleanup and protection script
+- `database-setup.sql` - Added protective trigger for future deployments
+- `MEMORY_BANK.md` - Updated with successful fix documentation
+
+**🎯 VERIFICATION STATUS**: ✅ **SUCCESSFUL**
+- Database verification returned 0 unauthorized permissions
+- User confirmed fix is working correctly
+- Vehicle system errors resolved
+- Navigation properly filtered for סייר users
 
 ---
 

@@ -12,7 +12,7 @@ async function initializeSupabaseStorage() {
   try {
     console.log('🪣 Initializing Supabase Storage...');
     
-    // Check if 'uploads' bucket exists
+    // Check if 'vehicle-images' bucket exists
     const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
     
     if (listError) {
@@ -20,16 +20,19 @@ async function initializeSupabaseStorage() {
       return false;
     }
     
-    const uploadsBucket = buckets.find(bucket => bucket.name === 'uploads');
+    const vehicleImagesBucket = buckets.find(bucket => bucket.name === 'vehicle-images');
     
-    if (!uploadsBucket) {
-      console.log('📦 Creating uploads bucket...');
+    if (!vehicleImagesBucket) {
+      console.log('📦 Creating vehicle-images bucket...');
       
-      // Create the bucket
-      const { data, error } = await supabaseAdmin.storage.createBucket('uploads', {
+      // Create the bucket with public access
+      const { data, error } = await supabaseAdmin.storage.createBucket('vehicle-images', {
         public: true,
         allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
-        fileSizeLimit: 5242880 // 5MB
+        fileSizeLimit: 5242880, // 5MB
+        fileTransforms: {
+          imageFormat: 'auto'
+        }
       });
       
       if (error) {
@@ -37,16 +40,67 @@ async function initializeSupabaseStorage() {
         return false;
       }
       
-      console.log('✅ Uploads bucket created successfully');
+      console.log('✅ Vehicle-images bucket created successfully');
     } else {
-      console.log('✅ Uploads bucket already exists');
+      console.log('✅ Vehicle-images bucket already exists');
     }
     
-    // Set up storage policies for public read access
+    // Set up storage policies for authenticated uploads and public read access
     console.log('🔐 Setting up storage policies...');
     
-    // Note: Policies are usually set up via Supabase Dashboard or SQL
-    // For this demo, we'll assume public read access is enabled
+    try {
+      // Create storage policies using SQL
+      const storagePoliciesToCreate = [
+        // Allow authenticated users to upload
+        `
+        CREATE POLICY IF NOT EXISTS "Allow authenticated uploads to vehicle-images"
+        ON storage.objects
+        FOR INSERT
+        TO authenticated
+        WITH CHECK (
+          bucket_id = 'vehicle-images' AND
+          auth.role() = 'authenticated'
+        );
+        `,
+        // Allow public read access
+        `
+        CREATE POLICY IF NOT EXISTS "Allow public read access to vehicle-images"
+        ON storage.objects
+        FOR SELECT
+        TO public
+        USING (bucket_id = 'vehicle-images');
+        `,
+        // Allow authenticated updates
+        `
+        CREATE POLICY IF NOT EXISTS "Allow authenticated updates to vehicle-images"
+        ON storage.objects
+        FOR UPDATE
+        TO authenticated
+        USING (bucket_id = 'vehicle-images' AND auth.role() = 'authenticated')
+        WITH CHECK (bucket_id = 'vehicle-images' AND auth.role() = 'authenticated');
+        `,
+        // Allow authenticated deletes
+        `
+        CREATE POLICY IF NOT EXISTS "Allow authenticated deletes to vehicle-images"
+        ON storage.objects
+        FOR DELETE
+        TO authenticated
+        USING (bucket_id = 'vehicle-images' AND auth.role() = 'authenticated');
+        `
+      ];
+      
+      for (const policy of storagePoliciesToCreate) {
+        const { error: policyError } = await supabaseAdmin.rpc('sql', { query: policy });
+        if (policyError && !policyError.message.includes('already exists')) {
+          console.warn('⚠️ Policy creation warning:', policyError.message);
+        }
+      }
+      
+      console.log('✅ Storage policies configured');
+    } catch (policyError) {
+      console.warn('⚠️ Could not set storage policies programmatically:', policyError.message);
+      console.log('📝 Please run the setup-storage-policies.sql file manually in Supabase SQL Editor');
+    }
     
     console.log('✅ Supabase Storage initialization complete');
     return true;

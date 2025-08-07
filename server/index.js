@@ -33,6 +33,7 @@ const volunteerAssignmentRoutes = require('./routes/volunteer-assignments');
 const permissionsRoutes = require('./routes/permissions');
 const analyticsRoutes = require('./routes/analytics');
 const actionReportsRoutes = require('./routes/action-reports');
+const vehiclesRoutes = require('./routes/vehicles');
 
 // Check if all required routes exist
 const fs = require('fs');
@@ -61,7 +62,7 @@ try {
 }
 
 try {
-  uploadRoutes = require('./routes/upload');
+  uploadRoutes = require('./routes/upload-supabase');
 } catch (error) {
   console.warn('⚠️ Warning: upload route not found');
 }
@@ -74,6 +75,9 @@ try {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust proxy for rate limiting (needed when behind reverse proxy/load balancer)
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
@@ -176,6 +180,7 @@ app.use('/api/volunteer-assignments', volunteerAssignmentRoutes);
 app.use('/api/permissions', permissionsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/action-reports', actionReportsRoutes);
+app.use('/api/vehicles', vehiclesRoutes);
 
 // Optional routes (only if they exist)
 if (userRoutes) {
@@ -237,33 +242,14 @@ io.on('connection', (socket) => {
     try {
       console.log('🔐 Admin joining:', userData?.username || 'Unknown');
       
-      // Normalize user ID field (frontend might send userId or id)
-      const userId = userData?.id || userData?.userId;
-      
-      // Validate required user data
-      if (!userData || 
-          !userId || 
-          !userData.username || 
-          !userData.full_name ||
-          userData.full_name.trim() === '' ||
-          userData.username.trim() === '') {
-        
-        console.error('❌ Invalid user data for socket connection:', userData);
-        socket.emit('connection-error', {
-          message: 'חסרים נתוני משתמש. אנא התנתק והתחבר מחדש.'
-        });
-        socket.disconnect(true);
-        return;
-      }
-      
-      // Store user information (with normalized ID)
+      // Store user information
       socket.userInfo = {
-        id: userId, // Use normalized ID
-        username: userData.username.trim(),
-        full_name: userData.full_name.trim(),
-        role: userData.role || 'סייר',
-        id_number: userData.id_number || null,
-        photo_url: userData.photo_url || null,
+        id: userData.id,
+        username: userData.username,
+        full_name: userData.full_name,
+        role: userData.role,
+        id_number: userData.id_number,
+        photo_url: userData.photo_url,
         connectedAt: new Date().toISOString()
       };
       
@@ -286,10 +272,10 @@ io.on('connection', (socket) => {
   // Handle manual request for online users
   socket.on('get-online-users', () => {
     try {
-      // console.log('📡 Client requesting online users list'); // Commented out to reduce spam
+      console.log('📡 Client requesting online users list');
       const onlineUsersList = Array.from(onlineUsers.values());
       socket.emit('online-users-updated', onlineUsersList);
-      // console.log(`📤 Sent ${onlineUsersList.length} online users to client`); // Commented out to reduce spam
+      console.log(`📤 Sent ${onlineUsersList.length} online users to client`);
     } catch (error) {
       console.error('Error sending online users:', error);
     }
@@ -393,29 +379,51 @@ async function startServer() {
       ].filter(Boolean).join(', '));
       console.log('📡 WebSocket server ready for real-time features');
     });
+
+    // Graceful shutdown handlers - moved inside startServer to access server variable
+    let isShuttingDown = false;
+    
+    const shutdown = (signal) => {
+      if (isShuttingDown) {
+        console.log(`⚠️  ${signal} received again, forcing exit...`);
+        process.exit(1);
+        return;
+      }
+      
+      isShuttingDown = true;
+      console.log(`📴 ${signal} received, shutting down gracefully`);
+      
+      // Close the HTTP server
+      server.close((err) => {
+        if (err) {
+          console.error('❌ Error during server shutdown:', err);
+          process.exit(1);
+        }
+        
+        console.log('✅ Server closed');
+        
+        // Close socket.io connections
+        io.close(() => {
+          console.log('✅ Socket.io connections closed');
+          process.exit(0);
+        });
+      });
+      
+      // Force exit after 10 seconds if graceful shutdown fails
+      setTimeout(() => {
+        console.log('⚠️  Forcing shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
     
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 }
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('📴 SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('📴 SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Server closed');
-    process.exit(0);
-  });
-});
 
 // Start the server
 startServer();

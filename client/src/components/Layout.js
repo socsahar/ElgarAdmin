@@ -34,11 +34,12 @@ import {
   Summarize as SummarizeIcon,
   Menu as MenuIcon,
   Close as CloseIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../contexts/PermissionsContext';
 import UserAvatar from './UserAvatar';
 import { useThemeMode } from '../contexts/ThemeContext';
-import { hasPermission } from '../utils/permissions';
 
 // Responsive drawer widths
 const drawerWidth = 280;
@@ -48,15 +49,17 @@ const allMenuItems = [
   { text: 'לוח בקרה', icon: <DashboardIcon />, path: '/dashboard', permission: 'view_dashboard_events' },
   { text: 'משתמשים', icon: <PeopleIcon />, path: '/users', permission: 'view_users_info' },
   { text: 'אירועים', icon: <EventIcon />, path: '/events', permission: 'view_events_list' },
+  { text: 'שאילתא', icon: <SearchIcon />, path: '/vehicle-search', permission: ['vehicle_use_system', 'vehicle_search_access'] },
   { text: 'אנליטיקה', icon: <AnalyticsIcon />, path: '/analytics', permission: 'access_analytics' },
   { text: 'דוחות פעולה', icon: <ReportIcon />, path: '/action-reports', permission: 'manage_own_action_reports' },
-  { text: 'סיכומים', icon: <SummarizeIcon />, path: '/summaries', permission: 'access_summaries' },
+  { text: 'סיכומים', icon: <SummarizeIcon />, path: '/summaries', permission: ['access_summaries', 'view_own_summaries'] },
   { text: 'הגדרות', icon: <SettingsIcon />, path: '/settings', permission: 'can_modify_privileges' },
 ];
 
 const Layout = () => {
   const theme = useTheme();
   const { user, logout } = useAuth();
+  const { hasPermission, loading, permissions } = usePermissions();
   const { mode, toggleMode } = useThemeMode();
   const navigate = useNavigate();
   const location = useLocation();
@@ -70,13 +73,22 @@ const Layout = () => {
 
   // Filter menu items based on user permissions
   const menuItems = allMenuItems.filter(item => {
-    // Special case for summaries - check both permissions or if user is management role
-    if (item.path === '/summaries') {
-      return hasPermission(user, 'access_summaries') || 
-             hasPermission(user, 'view_own_summaries') ||
-             ['מפתח', 'אדמין', 'פיקוד יחידה', 'מפקד משל"ט'].includes(user?.role);
+    // Don't show any menu items if permissions are still loading
+    if (loading) {
+      return false;
     }
-    return hasPermission(user, item.permission);
+    
+    // Make sure user exists
+    if (!user) {
+      return false;
+    }
+    
+    // Handle array of permissions (check if user has any of the permissions)
+    if (Array.isArray(item.permission)) {
+      return item.permission.some(permission => hasPermission(permission));
+    }
+    
+    return hasPermission(item.permission);
   });
 
   const handleProfileMenuOpen = (event) => {

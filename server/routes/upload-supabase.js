@@ -1,7 +1,10 @@
+// Load environment variables
+require('dotenv').config();
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { supabase } = require('../config/supabase');
+const { supabase, supabaseAdmin } = require('../config/supabase');
 const { authMiddleware: auth } = require('../middleware/auth');
 
 // Configure multer for memory storage (we'll upload directly to Supabase)
@@ -57,14 +60,24 @@ router.post('/profile-photo', auth, (req, res) => {
         filename,
         size: file.size,
         type: file.mimetype,
-        user: req.user.username
+        user: req.user.username,
+        bucket: 'vehicle-images',
+        adminClient: !!supabaseAdmin
       });
+      
+      // Debug: Check if we can list buckets with admin client
+      const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
+      if (bucketsError) {
+        console.error('❌ Admin client cannot list buckets:', bucketsError);
+      } else {
+        console.log('✅ Admin client can access buckets:', buckets.map(b => b.name));
+      }
       
       // Delete existing photo for this user if userId is provided
       if (userId) {
         // List all files for this user and delete them
-        const { data: existingFiles } = await supabase.storage
-          .from('uploads')
+        const { data: existingFiles } = await supabaseAdmin.storage
+          .from('vehicle-images')
           .list('profile-photos', {
             search: userId
           });
@@ -72,8 +85,8 @@ router.post('/profile-photo', auth, (req, res) => {
         if (existingFiles && existingFiles.length > 0) {
           for (const existingFile of existingFiles) {
             if (existingFile.name.startsWith(`${userId}.`)) {
-              await supabase.storage
-                .from('uploads')
+              await supabaseAdmin.storage
+                .from('vehicle-images')
                 .remove([`profile-photos/${existingFile.name}`]);
               console.log('🗑️ Deleted existing photo:', existingFile.name);
             }
@@ -81,9 +94,9 @@ router.post('/profile-photo', auth, (req, res) => {
         }
       }
       
-      // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('uploads')
+      // Upload file to Supabase Storage using admin client to bypass RLS
+      const { data, error } = await supabaseAdmin.storage
+        .from('vehicle-images')
         .upload(filePath, file.buffer, {
           contentType: file.mimetype,
           upsert: true // Overwrite if exists
@@ -99,8 +112,8 @@ router.post('/profile-photo', auth, (req, res) => {
       }
       
       // Get public URL for the uploaded file
-      const { data: publicData } = supabase.storage
-        .from('uploads')
+      const { data: publicData } = supabaseAdmin.storage
+        .from('vehicle-images')
         .getPublicUrl(filePath);
       
       const publicUrl = publicData.publicUrl;
@@ -156,8 +169,8 @@ router.delete('/profile-photo/:filename', auth, async (req, res) => {
     
     // If filename is just a number (ID), find all files with that ID
     if (/^\d+$/.test(filename)) {
-      const { data: files } = await supabase.storage
-        .from('uploads')
+      const { data: files } = await supabaseAdmin.storage
+        .from('vehicle-images')
         .list('profile-photos', {
           search: filename
         });
@@ -173,8 +186,8 @@ router.delete('/profile-photo/:filename', auth, async (req, res) => {
     }
     
     if (filesToDelete.length > 0) {
-      const { error } = await supabase.storage
-        .from('uploads')
+      const { error } = await supabaseAdmin.storage
+        .from('vehicle-images')
         .remove(filesToDelete);
         
       if (error) {
@@ -211,6 +224,7 @@ router.delete('/profile-photo/:filename', auth, async (req, res) => {
 router.get('/info', auth, (req, res) => {
   res.json({
     storage: 'Supabase Cloud Storage',
+    bucket: 'vehicle-images',
     maxFileSize: '5MB',
     allowedTypes: ['JPEG', 'JPG', 'PNG', 'GIF', 'WebP'],
     guidelines: {
