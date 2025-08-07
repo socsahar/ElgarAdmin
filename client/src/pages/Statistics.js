@@ -54,7 +54,7 @@ import {
   FilterList as FilterIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api from '../utils/api';
 
 const Statistics = () => {
   const [loading, setLoading] = useState(true);
@@ -87,17 +87,13 @@ const Statistics = () => {
     try {
       setLoading(true);
       setError('');
-      const token = localStorage.getItem('token');
       const params = {
         range: dateRange,
         user: selectedUser !== 'all' ? selectedUser : undefined,
         eventType: eventType !== 'all' ? eventType : undefined
       };
 
-      const response = await axios.get('/api/statistics', {
-        headers: { Authorization: `Bearer ${token}` },
-        params
-      });
+      const response = await api.get('/statistics', { params });
 
       setStats(response.data);
     } catch (error) {
@@ -123,10 +119,7 @@ const Statistics = () => {
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/users', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/users');
       setUsers(response.data || []);
     } catch (error) {
       console.error('Error fetching users:', error);

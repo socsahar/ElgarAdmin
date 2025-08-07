@@ -15,7 +15,7 @@ import {
   Security as SecurityIcon,
   Warning as WarningIcon
 } from '@mui/icons-material';
-import axios from 'axios';
+import api from '../utils/api';
 
 const ForcePasswordChange = ({ open, onPasswordChanged }) => {
   const [passwordData, setPasswordData] = useState({
@@ -58,7 +58,7 @@ const ForcePasswordChange = ({ open, onPasswordChanged }) => {
 
     setLoading(true);
     try {
-      const response = await axios.put('/api/auth/change-password', {
+      const response = await api.put('/auth/change-password', {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });

@@ -14,6 +14,7 @@ import {
   Delete as DeleteIcon,
   Person as PersonIcon
 } from '@mui/icons-material';
+import api from '../utils/api';
 
 const ImageUpload = ({ 
   value, 
@@ -60,25 +61,18 @@ const ImageUpload = ({
       const formData = new FormData();
       formData.append('profilePhoto', file);
 
-      // Upload to server
+      // Upload to server using api instance
       const uploadUrl = userId 
-        ? `/api/upload/profile-photo?userId=${encodeURIComponent(userId)}`
-        : '/api/upload/profile-photo';
+        ? `/upload/profile-photo?userId=${encodeURIComponent(userId)}`
+        : '/upload/profile-photo';
         
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        body: formData,
+      const response = await api.post(uploadUrl, formData, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'multipart/form-data'
         }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'שגיאה בהעלאת התמונה');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       
       // Create preview URL for immediate display
       const previewUrl = URL.createObjectURL(file);
@@ -105,19 +99,8 @@ const ImageUpload = ({
       // Determine what to delete - if we have userId, delete by ID, otherwise by filename
       const deleteTarget = userId || value;
       
-      // Delete from server
-      const response = await fetch(`/api/upload/profile-photo/${deleteTarget}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.warn('Failed to delete file from server:', errorData.message);
-        // Continue anyway - file might not exist on server
-      }
+      // Delete from server using api instance
+      await api.delete(`/upload/profile-photo/${deleteTarget}`);
 
       // Clear preview and value
       setPreview(null);

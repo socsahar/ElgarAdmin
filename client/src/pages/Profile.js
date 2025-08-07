@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import UserAvatar from '../components/UserAvatar';
-import axios from 'axios';
+import api from '../utils/api';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
@@ -84,7 +84,7 @@ const Profile = () => {
 
   const handleSaveCarStatus = async (hasCar) => {
     try {
-      const response = await axios.put('/api/auth/profile', {
+      const response = await api.put('/auth/profile', {
         has_car: hasCar
       });
       
@@ -102,7 +102,7 @@ const Profile = () => {
 
   const handleSaveCarInfo = async () => {
     try {
-      const response = await axios.put('/api/auth/profile', {
+      const response = await api.put('/auth/profile', {
         has_car: profileData.has_car,
         car_type: profileData.car_type,
         license_plate: profileData.license_plate,
@@ -135,7 +135,7 @@ const Profile = () => {
     }
 
     try {
-      const response = await axios.put('/api/auth/change-password', {
+      const response = await api.put('/auth/change-password', {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });
