@@ -552,6 +552,79 @@ router.post('/users/:userId/force-disconnect', auth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/online-users/cleanup:
+ *   post:
+ *     summary: Clean up stale online users (מפתח only)
+ *     tags: [Admin, Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cleanup completed successfully
+ */
+router.post('/online-users/cleanup', auth, async (req, res) => {
+  try {
+    // Only מפתח users can cleanup
+    if (req.user.role !== 'מפתח') {
+      return res.status(403).json({ 
+        success: false,
+        message: 'רק מפתח יכול לנקות משתמשים מחוברים' 
+      });
+    }
+
+    // Get the io instance from app
+    const io = req.app.get('io');
+    if (!io) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Socket server not available' 
+      });
+    }
+
+    // Get all connected sockets
+    const sockets = await io.fetchSockets();
+    let cleanedUp = 0;
+
+    // Check each socket for validity
+    for (const socket of sockets) {
+      // If socket has no userInfo or invalid userInfo, disconnect it
+      if (!socket.userInfo || 
+          !socket.userInfo.id || 
+          !socket.userInfo.username ||
+          !socket.userInfo.full_name ||
+          socket.userInfo.full_name.trim() === '') {
+        
+        console.log('🧹 Cleaning up invalid socket:', socket.userInfo);
+        socket.disconnect(true);
+        cleanedUp++;
+      }
+    }
+
+    // Force refresh online users list
+    const remainingSockets = await io.fetchSockets();
+    const validOnlineUsers = remainingSockets
+      .filter(s => s.userInfo && s.userInfo.id)
+      .map(s => s.userInfo);
+      
+    io.to('admin-room').emit('online-users-updated', validOnlineUsers);
+
+    res.json({
+      success: true,
+      message: `ניקיון הושלם - ${cleanedUp} חיבורים לא תקינים נוקו`,
+      cleanedUp: cleanedUp,
+      remainingOnline: validOnlineUsers.length
+    });
+  } catch (error) {
+    console.error('Error cleaning up online users:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'שגיאת שרת' 
+    });
+  }
+});
+
 // Event Management Routes
 
 /**

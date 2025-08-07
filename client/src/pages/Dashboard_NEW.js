@@ -29,6 +29,8 @@ import {
   AccessTime as AccessTimeIcon,
   LocationOn as LocationOnIcon,
   FiberManualRecord as OnlineIcon,
+  CleaningServices as CleanupIcon,
+  Clear as ClearIcon,
   Close as CloseIcon,
   Person as PersonIcon,
   DirectionsCar as CarIcon,
@@ -308,6 +310,35 @@ function Dashboard() {
   const handleCloseUserModal = () => {
     setUserDetailsOpen(false);
     setSelectedUser(null);
+  };
+
+  const handleCleanupOnlineUsers = async () => {
+    try {
+      console.log('Starting online users cleanup...');
+      const response = await api.post('/api/admin/online-users/cleanup');
+      
+      if (response.data.success) {
+        console.log('Cleanup successful:', response.data);
+        // Automatically refresh the online users list
+        if (requestOnlineUsers) {
+          requestOnlineUsers();
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning up online users:', error);
+    }
+  };
+
+  const handleClearFrontendCache = () => {
+    console.log('🧹 Clearing frontend online users cache...');
+    // This will immediately clear the frontend state
+    if (socket) {
+      socket.emit('online-users-updated', []);
+    }
+    // Force refresh from server
+    if (requestOnlineUsers) {
+      requestOnlineUsers();
+    }
   };
 
   if (loading) {
@@ -802,6 +833,41 @@ function Dashboard() {
                       >
                         <RefreshIcon fontSize="small" />
                       </IconButton>
+                      {user?.role === 'מפתח' && (
+                        <>
+                          <IconButton 
+                            size="small" 
+                            onClick={handleCleanupOnlineUsers}
+                            disabled={!connected}
+                            title="נקה חיבורים לא תקינים (מפתח בלבד)"
+                            sx={{ 
+                              color: '#e74c3c',
+                              ml: 1,
+                              '&:hover': { 
+                                backgroundColor: '#ffeaea',
+                                color: '#c0392b'
+                              }
+                            }}
+                          >
+                            <CleanupIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={handleClearFrontendCache}
+                            title="נקה זיכרון מקומי (מפתח בלבד)"
+                            sx={{ 
+                              color: '#9b59b6',
+                              ml: 1,
+                              '&:hover': { 
+                                backgroundColor: '#f3e5f5',
+                                color: '#8e24aa'
+                              }
+                            }}
+                          >
+                            <ClearIcon fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
                     </Box>
                   </Box>
                   
@@ -832,14 +898,18 @@ function Dashboard() {
                       </Typography>
                     </Box>
                   ) : (
-                    <List dense sx={{ p: 0 }}>
-                      {onlineUsers.slice(0, 8).map((onlineUser, index) => (
-                        <React.Fragment key={onlineUser.id}>
-                          <ListItem 
-                            sx={{ 
-                              px: 0, 
-                              py: 1,
-                              cursor: 'pointer',
+                    <>
+                      {/* Debug log for dashboard rendering */}
+                      {console.log('🖥️ Dashboard rendering online users:', onlineUsers)}
+                      
+                      <List dense sx={{ p: 0 }}>
+                        {onlineUsers.slice(0, 8).map((onlineUser, index) => (
+                          <React.Fragment key={onlineUser.id}>
+                            <ListItem 
+                              sx={{ 
+                                px: 0, 
+                                py: 1,
+                                cursor: 'pointer',
                               borderRadius: 2,
                               '&:hover': {
                                 backgroundColor: '#f8f9fa',
@@ -906,6 +976,7 @@ function Dashboard() {
                         </ListItem>
                       )}
                     </List>
+                    </>
                   )}
                 </CardContent>
               </Card>

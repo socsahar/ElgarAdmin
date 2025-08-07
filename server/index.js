@@ -237,14 +237,30 @@ io.on('connection', (socket) => {
     try {
       console.log('🔐 Admin joining:', userData?.username || 'Unknown');
       
-      // Store user information
+      // Validate required user data
+      if (!userData || 
+          !userData.id || 
+          !userData.username || 
+          !userData.full_name ||
+          userData.full_name.trim() === '' ||
+          userData.username.trim() === '') {
+        
+        console.error('❌ Invalid user data for socket connection:', userData);
+        socket.emit('connection-error', {
+          message: 'חסרים נתוני משתמש. אנא התנתק והתחבר מחדש.'
+        });
+        socket.disconnect(true);
+        return;
+      }
+      
+      // Store user information (with validation)
       socket.userInfo = {
         id: userData.id,
-        username: userData.username,
-        full_name: userData.full_name,
-        role: userData.role,
-        id_number: userData.id_number,
-        photo_url: userData.photo_url,
+        username: userData.username.trim(),
+        full_name: userData.full_name.trim(),
+        role: userData.role || 'סייר',
+        id_number: userData.id_number || null,
+        photo_url: userData.photo_url || null,
         connectedAt: new Date().toISOString()
       };
       

@@ -96,6 +96,25 @@ export const SocketProvider = ({ children }) => {
       // Handle online users updates
       newSocket.on('online-users-updated', (users) => {
         console.log('👥 Received online users update:', users?.length || 0);
+        console.log('🔍 Detailed users data:', users);
+        
+        // Debug each user
+        if (users && users.length > 0) {
+          console.log('📋 Breaking down users:');
+          users.forEach((user, index) => {
+            console.log(`👤 User ${index + 1}:`, {
+              id: user.id,
+              username: user.username,
+              full_name: user.full_name,
+              role: user.role,
+              photo_url: user.photo_url,
+              connectedAt: user.connectedAt
+            });
+          });
+        } else {
+          console.log('✅ No online users received from server');
+        }
+        
         setOnlineUsers(users || []);
       });
 
