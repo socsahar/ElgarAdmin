@@ -241,7 +241,8 @@ io.on('connection', (socket) => {
         full_name: userData.full_name,
         role: userData.role,
         id_number: userData.id_number,
-        photo_url: userData.photo_url
+        photo_url: userData.photo_url,
+        connectedAt: new Date().toISOString()
       };
       
       // Add to online users
@@ -257,6 +258,18 @@ io.on('connection', (socket) => {
       console.log(`👥 Online users count: ${onlineUsersList.length}`);
     } catch (error) {
       console.error('Error handling admin join:', error);
+    }
+  });
+
+  // Handle manual request for online users
+  socket.on('get-online-users', () => {
+    try {
+      console.log('📡 Client requesting online users list');
+      const onlineUsersList = Array.from(onlineUsers.values());
+      socket.emit('online-users-updated', onlineUsersList);
+      console.log(`📤 Sent ${onlineUsersList.length} online users to client`);
+    } catch (error) {
+      console.error('Error sending online users:', error);
     }
   });
 
