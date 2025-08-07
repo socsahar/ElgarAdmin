@@ -50,6 +50,7 @@ function Dashboard() {
   const [closedTheftCases, setClosedTheftCases] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Force refresh trigger
   
   // Event Details Modal State
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
@@ -63,46 +64,79 @@ function Dashboard() {
 
   useEffect(() => {
     loadDashboardData();
-    // Also immediately request online users on component mount
-    refreshOnlineUsers();
   }, []); // Run on component mount
+
+  // Force refresh online users when component mounts or becomes active
+  useEffect(() => {
+    // Try to refresh online users with a small delay to ensure socket is ready
+    const timeouts = [0, 500, 1000, 2000]; // Multiple attempts with increasing delays
+    
+    timeouts.forEach((delay) => {
+      setTimeout(() => {
+        if (socket && connected) {
+          console.log(`🚀 Force requesting online users (attempt after ${delay}ms)`);
+          socket.emit('get-online-users');
+        }
+      }, delay);
+    });
+  }, []); // Run only on mount
 
   useEffect(() => {
     // Set up real-time online users tracking
     if (socket && connected) {
-      // Request current online users when socket connects or component mounts
+      console.log('🔌 Setting up socket listeners for online users');
+      
+      // Request current online users immediately
       socket.emit('get-online-users');
       
       // Listen for online users updates
-      socket.on('online-users-updated', (users) => {
+      const handleOnlineUsersUpdate = (users) => {
+        console.log('👥 Received online users update:', users);
         setOnlineUsers(users);
-      });
+      };
+      
+      socket.on('online-users-updated', handleOnlineUsersUpdate);
 
       // Set up periodic refresh for online users (every 30 seconds)
       const onlineUsersInterval = setInterval(() => {
+        console.log('🔄 Requesting online users (periodic)');
         socket.emit('get-online-users');
       }, 30000);
       
       // Clean up listeners and interval
       return () => {
-        socket.off('online-users-updated');
+        console.log('🧹 Cleaning up socket listeners');
+        socket.off('online-users-updated', handleOnlineUsersUpdate);
         clearInterval(onlineUsersInterval);
       };
+    } else {
+      console.log('⚠️ Socket not ready for online users', { socket: !!socket, connected });
     }
   }, [socket, connected]);
 
-  // Additional effect to refresh online users when component becomes visible
+  // Additional effect to refresh online users when component becomes visible or mounts
   useEffect(() => {
+    // Immediate request when component mounts or socket becomes ready
+    const requestOnlineUsers = () => {
+      if (socket && connected) {
+        console.log('📡 Requesting online users (component focus)');
+        socket.emit('get-online-users');
+      }
+    };
+
+    // Request immediately
+    requestOnlineUsers();
+
     const handleVisibilityChange = () => {
       if (!document.hidden && socket && connected) {
-        // Page became visible, refresh online users
+        console.log('👁️ Page became visible, refreshing online users');
         socket.emit('get-online-users');
       }
     };
 
     const handleFocus = () => {
       if (socket && connected) {
-        // Window gained focus, refresh online users
+        console.log('🎯 Window gained focus, refreshing online users');
         socket.emit('get-online-users');
       }
     };
@@ -119,15 +153,24 @@ function Dashboard() {
   }, [socket, connected]);
 
   const refreshOnlineUsers = () => {
+    console.log('🔄 Manual refresh online users requested');
     if (socket && connected) {
+      console.log('✅ Emitting get-online-users request');
       socket.emit('get-online-users');
     } else {
-      // If socket is not ready, try again in a short delay
-      setTimeout(() => {
-        if (socket && connected) {
-          socket.emit('get-online-users');
-        }
-      }, 1000);
+      console.log('⏳ Socket not ready, retrying...');
+      // If socket is not ready, try multiple times with increasing delays
+      const retryAttempts = [500, 1000, 2000];
+      retryAttempts.forEach((delay, index) => {
+        setTimeout(() => {
+          if (socket && connected) {
+            console.log(`✅ Retry ${index + 1}: Emitting get-online-users request`);
+            socket.emit('get-online-users');
+          } else {
+            console.log(`❌ Retry ${index + 1}: Socket still not ready`);
+          }
+        }, delay);
+      });
     }
   };
 
@@ -814,6 +857,21 @@ function Dashboard() {
                           fontSize: '0.75rem'
                         }}
                       />
+                      <IconButton 
+                        size="small" 
+                        onClick={refreshOnlineUsers}
+                        disabled={!connected}
+                        title="רענן רשימת מתנדבים מחוברים"
+                        sx={{ 
+                          color: '#3498db',
+                          '&:hover': { 
+                            backgroundColor: '#ecf0f1',
+                            color: '#2980b9'
+                          }
+                        }}
+                      >
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
                     </Box>
                   </Box>
                   
