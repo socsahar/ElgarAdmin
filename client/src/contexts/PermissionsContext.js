@@ -20,14 +20,9 @@ export const PermissionsProvider = ({ children }) => {
   const [hasPrivilegeModifyAccess, setHasPrivilegeModifyAccess] = useState(false);
 
   // Load user permissions
-  useEffect(() => {
-    if (user?.id) {
-      loadUserPermissions();
-      loadManageableRoles();
-    }
-  }, [user]);
-
   const loadUserPermissions = async () => {
+    if (!user?.id) return;
+    
     try {
       setLoading(true);
       const response = await api.get(`/api/permissions/permissions/${user.id}`);
@@ -41,6 +36,13 @@ export const PermissionsProvider = ({ children }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.id) {
+      loadUserPermissions();
+      loadManageableRoles();
+    }
+  }, [user?.id]);
 
   const loadManageableRoles = async () => {
     try {

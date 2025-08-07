@@ -16,12 +16,14 @@ export const useSocket = () => {
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
     if (user) {
+      setConnecting(true);
       const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
       const newSocket = io(SOCKET_URL, {
         auth: {
@@ -38,6 +40,7 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('connect', () => {
         console.log('✅ Connected to server');
         setConnected(true);
+        setConnecting(false);
         
         // Join admin room for real-time updates with user details
         newSocket.emit('join-admin', { 
@@ -60,6 +63,7 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('disconnect', (reason) => {
         console.log('❌ Disconnected from server:', reason);
         setConnected(false);
+        setConnecting(false);
         setOnlineUsers([]);
       });
 
@@ -76,6 +80,7 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('reconnect', (attemptNumber) => {
         console.log('🔄 Reconnected after', attemptNumber, 'attempts');
         setConnected(true);
+        setConnecting(false);
         
         // Re-join admin room and request online users
         newSocket.emit('join-admin', { 
@@ -146,8 +151,13 @@ export const SocketProvider = ({ children }) => {
       setSocket(newSocket);
 
       return () => {
+        setConnecting(false);
+        setConnected(false);
         newSocket.close();
       };
+    } else {
+      setConnecting(false);
+      setConnected(false);
     }
   }, [user, enqueueSnackbar]);
 
@@ -163,6 +173,7 @@ export const SocketProvider = ({ children }) => {
   const value = {
     socket,
     connected,
+    connecting,
     onlineUsers,
     requestOnlineUsers,
     emit: (event, data) => socket?.emit(event, data),
