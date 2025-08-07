@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../utils/api'; // Use the configured API instance
 
 const AuthContext = createContext();
 
@@ -11,10 +11,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Don't set axios baseURL when using proxy in package.json
-// Use relative URLs and let the proxy handle routing
-const API_URL = '/api'; // Use relative path for proxy
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,16 +19,16 @@ export const AuthProvider = ({ children }) => {
     // Check if user is logged in on app start
     const token = localStorage.getItem('token');
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       // Verify token and get user info
-      axios.get('/api/auth/me')
+      api.get('/auth/me')
         .then(response => {
           setUser(response.data.user);
         })
         .catch(() => {
           // Token is invalid
           localStorage.removeItem('token');
-          delete axios.defaults.headers.common['Authorization'];
+          delete api.defaults.headers.common['Authorization'];
         })
         .finally(() => {
           setLoading(false);
@@ -44,14 +40,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      console.log('AuthContext: Making login request to: /api/auth/login (via proxy)');
-      const response = await axios.post('/api/auth/login', { username, password });
+      console.log('AuthContext: Making login request to backend API');
+      const response = await api.post('/auth/login', { username, password });
       console.log('AuthContext: Login response:', response.data);
       
       const { token, user: userData } = response.data;
       
       localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(userData);
       
       // Check if user must change password
@@ -83,13 +79,13 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post('/api/auth/logout');
+      await api.post('/auth/logout');
     } catch (error) {
       console.warn('Logout API call failed:', error);
       // Continue with logout even if API call fails
     } finally {
       localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
+      delete api.defaults.headers.common['Authorization'];
       setUser(null);
     }
   };
