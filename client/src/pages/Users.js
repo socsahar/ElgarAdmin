@@ -857,7 +857,7 @@ const Users = () => {
               <Paper sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2 }}>
                 <ImageUpload
                   value={formData.photo_url}
-                  onChange={(filename) => setFormData({ ...formData, photo_url: filename })}
+                  onChange={(photoUrl) => setFormData({ ...formData, photo_url: photoUrl })}
                   label="תמונת פרופיל (אופציונלי)"
                   userId={formData.id_number}
                 />

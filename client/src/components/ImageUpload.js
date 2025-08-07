@@ -79,7 +79,7 @@ const ImageUpload = ({
       setPreview(previewUrl);
       
       // Call onChange with the full Supabase URL instead of just filename
-      // This ensures the correct URL is saved to the database
+      // This ensures the correct URL is saved to the database (v2.0)
       onChange(data.data.url);
       
     } catch (err) {
