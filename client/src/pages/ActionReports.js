@@ -328,7 +328,7 @@ const ActionReports = () => {
       partner_name: '',
       partner_id_number: '',
       partner_phone: '',
-      volunteer_role: getRoleDisplayName(user.role),
+      volunteer_role: user.position || user.role || '',
       full_report: '',
       digital_signature: false
     });
