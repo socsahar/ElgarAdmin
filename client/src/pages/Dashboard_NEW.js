@@ -36,6 +36,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import UserAvatar from '../components/UserAvatar';
 import { useSocket } from '../contexts/SocketContext';
+import api from '../utils/api';
 
 function Dashboard() {
   const { user } = useAuth();

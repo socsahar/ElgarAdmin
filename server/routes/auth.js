@@ -87,6 +87,23 @@ router.post('/login', async (req, res) => {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
+      // Check if user is already online (prevent duplicate logins)
+      const io = req.app.get('io');
+      if (io) {
+        const sockets = await io.fetchSockets();
+        const existingConnection = sockets.find(socket => 
+          socket.userInfo && socket.userInfo.id === users.id
+        );
+        
+        if (existingConnection) {
+          console.log('User already logged in:', username);
+          return res.status(409).json({ 
+            message: 'המשתמש כבר מחובר למערכת. רק חיבור אחד מותר.',
+            error: 'USER_ALREADY_ONLINE'
+          });
+        }
+      }
+
       // Check password using the correct field name (password_hash)
       const isMatch = await bcrypt.compare(password, users.password_hash);
       if (!isMatch) {

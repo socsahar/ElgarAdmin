@@ -63,6 +63,16 @@ export const SocketProvider = ({ children }) => {
         setOnlineUsers([]);
       });
 
+      // Handle force disconnect from admin
+      newSocket.on('force-disconnect', (data) => {
+        console.log('🔌 Force disconnected:', data);
+        alert(data.message || 'חיבורך נותק על ידי מנהל המערכת');
+        
+        // Force logout
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      });
+
       newSocket.on('reconnect', (attemptNumber) => {
         console.log('🔄 Reconnected after', attemptNumber, 'attempts');
         setConnected(true);

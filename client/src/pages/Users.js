@@ -42,7 +42,8 @@ import {
   Close as CloseIcon,
   Summarize as SummarizeIcon,
   LockReset as LockResetIcon,
-  Security as SecurityIcon
+  Security as SecurityIcon,
+  PowerOff as PowerOffIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
@@ -332,6 +333,29 @@ const Users = () => {
     } catch (error) {
       console.error('Error resetting password:', error);
       setError(error.response?.data?.message || 'שגיאה באיפוס הסיסמה');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForceDisconnect = async (user) => {
+    if (!window.confirm(`האם אתה בטוח שברצונך לנתק את ${user.full_name || user.username} מהמערכת?\nהמשתמש יותחבר מחדש בכוח ויצטרך להתחבר מחדש.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await api.post(`/api/admin/users/${user.id}/force-disconnect`);
+      
+      if (response.data.success) {
+        setSuccess(`${user.full_name || user.username} נותק בהצלחה מהמערכת`);
+        setTimeout(() => setSuccess(''), 5000);
+      }
+    } catch (error) {
+      console.error('Error forcing disconnect:', error);
+      setError(error.response?.data?.message || 'שגיאה בניתוק המשתמש');
       setTimeout(() => setError(''), 5000);
     } finally {
       setLoading(false);
@@ -1112,6 +1136,26 @@ const Users = () => {
               }}
             >
               איפוס סיסמה
+            </Button>
+          )}
+          {currentUser?.role === 'מפתח' && selectedUserDetails?.id !== currentUser?.id && (
+            <Button 
+              onClick={() => handleForceDisconnect(selectedUserDetails)}
+              variant="outlined"
+              startIcon={<PowerOffIcon />}
+              sx={{ 
+                borderColor: '#f39c12',
+                color: '#f39c12',
+                '&:hover': { 
+                  backgroundColor: '#f39c12',
+                  color: 'white',
+                  borderColor: '#f39c12'
+                },
+                minWidth: 120,
+                mr: 1
+              }}
+            >
+              ניתוק בכפיה
             </Button>
           )}
           {canModifyPrivileges() && canManageUser(selectedUserDetails) && selectedUserDetails?.id !== currentUser?.id && (

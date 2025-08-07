@@ -222,6 +222,9 @@ const io = socketIo(server, {
   }
 });
 
+// Make io instance available to routes
+app.set('io', io);
+
 // Store online users
 const onlineUsers = new Map();
 

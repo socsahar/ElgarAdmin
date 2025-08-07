@@ -454,6 +454,104 @@ router.put('/users/:userId/reset-password', auth, requireSuperRole, async (req, 
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/users/{userId}/force-disconnect:
+ *   post:
+ *     summary: Force disconnect user (מפתח only)
+ *     tags: [Admin, Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User disconnected successfully
+ *       403:
+ *         description: Insufficient permissions
+ *       404:
+ *         description: User not found or not online
+ */
+router.post('/users/:userId/force-disconnect', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Only מפתח users can force disconnect others
+    if (req.user.role !== 'מפתח') {
+      return res.status(403).json({ 
+        success: false,
+        message: 'רק מפתח יכול לנתק משתמשים בכוח' 
+      });
+    }
+
+    // Get user details for logging
+    const { data: targetUser, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('id, username, full_name, role')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !targetUser) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'המשתמש לא נמצא' 
+      });
+    }
+
+    // Get io instance and find user's socket
+    const io = req.app.get('io');
+    if (!io) {
+      return res.status(500).json({ 
+        success: false,
+        message: 'Socket server not available' 
+      });
+    }
+
+    const sockets = await io.fetchSockets();
+    const userSocket = sockets.find(socket => 
+      socket.userInfo && socket.userInfo.id === userId
+    );
+
+    if (!userSocket) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'המשתמש אינו מחובר כרגע' 
+      });
+    }
+
+    // Disconnect the user
+    userSocket.emit('force-disconnect', {
+      message: 'חיבורך נותק על ידי מנהל המערכת',
+      reason: 'ADMIN_DISCONNECT'
+    });
+    
+    userSocket.disconnect(true);
+
+    console.log(`🔌 User ${targetUser.username} force disconnected by ${req.user.username}`);
+
+    res.json({
+      success: true,
+      message: `המשתמש ${targetUser.full_name || targetUser.username} נותק בהצלחה`,
+      disconnectedUser: {
+        id: targetUser.id,
+        username: targetUser.username,
+        full_name: targetUser.full_name,
+        role: targetUser.role
+      }
+    });
+  } catch (error) {
+    console.error('Error force disconnecting user:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'שגיאת שרת בניתוק המשתמש' 
+    });
+  }
+});
+
 // Event Management Routes
 
 /**
