@@ -7,11 +7,46 @@ server/node_modules/
 client/build/
 dist/
 
-# Environment files
+# Environment files (SENSITIVE)
 .env
 .env.local
 .env.development
 .env.production
+.env.development.local
+.env.test.local
+.env.production.local
+server/.env
+client/.env
+
+# Database & SQL Files (SENSITIVE)
+*.sql
+database-setup.sql
+car-theft-schema.sql
+vehicle-schema.sql
+setup-storage-policies.sql
+
+# Permission Scripts (SENSITIVE)
+*sayer*.sql
+*permissions*.sql
+fix-*.sql
+add-*.sql
+remove-*.sql
+update-*.sql
+clean-*.sql
+check-*.sql
+
+# Backup Files (SENSITIVE)
+*.backup
+*.bak
+*.old
+index.js.backup
+auth-mongodb.js.bak
+upload-local.js.backup
+
+# User Data & Images (SENSITIVE)
+user*.png
+user*.jpg
+fix-test-user.js
 
 # Logs
 logs/
