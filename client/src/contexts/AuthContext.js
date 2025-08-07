@@ -40,10 +40,6 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      console.log('AuthContext: Making login request to backend API');
-      console.log('AuthContext: API base URL:', api.defaults.baseURL);
-      console.log('AuthContext: Full URL will be:', api.defaults.baseURL + '/api/auth/login');
-      
       const response = await api.post('/api/auth/login', { username, password });
       console.log('AuthContext: Login response:', response.data);
       

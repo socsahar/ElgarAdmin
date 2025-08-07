@@ -21,6 +21,7 @@ const { supabase, supabaseAdmin } = require('./config/supabase');
 const { migrateDatabase } = require('./scripts/migrateDatabase');
 const createDefaultAdmin = require('./scripts/createDefaultAdmin');
 const { initializeLogs } = require('./scripts/initializeLogs');
+const { initializeSupabaseStorage } = require('./scripts/initializeStorage');
 const { healthMonitor } = require('./utils/healthMonitor');
 
 // Import routes
@@ -338,6 +339,9 @@ async function startServer() {
     
     // Initialize logs table
     await initializeLogs();
+    
+    // Initialize Supabase Storage
+    await initializeSupabaseStorage();
     
     // Start health monitoring
     healthMonitor.start();
