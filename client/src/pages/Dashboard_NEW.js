@@ -216,72 +216,75 @@ function Dashboard() {
 
     console.log('User clicked:', user.id, user.full_name || user.username);
     
+    // First, set the modal open with basic user data
     setSelectedUser(user);
     setUserDetailsOpen(true);
-    
-    // Check cache first
-    const cacheKey = user.id;
-    if (userStatsCache.has(cacheKey)) {
-      console.log('Using cached user stats for:', user.id);
-      const cachedStats = userStatsCache.get(cacheKey);
-      setSelectedUser({
-        ...user,
-        ...cachedStats
-      });
-      return;
-    }
-    
     setUserStatsLoading(true);
     
-    // Fetch real user statistics
     try {
-      console.log('Fetching user statistics for:', user.id);
+      // Fetch complete user data from the database
+      console.log('Fetching complete user data for:', user.id);
+      const userResponse = await api.get(`/api/users/${user.id}`);
+      const completeUserData = userResponse.data;
       
-      // Import volunteer assignment API
-      const { default: volunteerAssignmentAPI } = await import('../utils/volunteerAssignmentAPI');
+      console.log('Complete user data fetched:', completeUserData);
       
-      // Get volunteer assignments for this user
-      const assignments = await volunteerAssignmentAPI.getVolunteerAssignments(user.id);
+      // Check cache for stats
+      const cacheKey = user.id;
+      let userStats = {};
       
-      console.log('Received assignments:', assignments.length, 'for user:', user.id);
+      if (userStatsCache.has(cacheKey)) {
+        console.log('Using cached user stats for:', user.id);
+        userStats = userStatsCache.get(cacheKey);
+      } else {
+        // Fetch user statistics
+        console.log('Fetching user statistics for:', user.id);
+        
+        const { default: volunteerAssignmentAPI } = await import('../utils/volunteerAssignmentAPI');
+        
+        // Get volunteer assignments for this user
+        const assignments = await volunteerAssignmentAPI.getVolunteerAssignments(user.id);
+        
+        console.log('Received assignments:', assignments.length, 'for user:', user.id);
+        
+        // Calculate statistics
+        const totalEvents = assignments.length;
+        const completedEvents = assignments.filter(a => a.status === 'completed').length;
+        const activeEvents = assignments.filter(a => ['assigned', 'accepted'].includes(a.status)).length;
+        
+        userStats = {
+          totalEvents: totalEvents,
+          activeEvents: activeEvents,
+          completedEvents: completedEvents,
+          totalReports: completedEvents, // Using completed assignments as proxy for reports
+          hoursVolunteered: completedEvents * 2, // Estimate 2 hours per completed assignment
+          assignments: assignments
+        };
+        
+        // Cache the results for 5 minutes
+        setUserStatsCache(prev => {
+          const newCache = new Map(prev);
+          newCache.set(cacheKey, userStats);
+          // Clear cache after 5 minutes
+          setTimeout(() => {
+            setUserStatsCache(currentCache => {
+              const updatedCache = new Map(currentCache);
+              updatedCache.delete(cacheKey);
+              return updatedCache;
+            });
+          }, 5 * 60 * 1000); // 5 minutes
+          return newCache;
+        });
+      }
       
-      // Calculate statistics
-      const totalEvents = assignments.length;
-      const completedEvents = assignments.filter(a => a.status === 'completed').length;
-      const activeEvents = assignments.filter(a => ['assigned', 'accepted'].includes(a.status)).length;
-      
-      const userStats = {
-        totalEvents: totalEvents,
-        activeEvents: activeEvents,
-        completedEvents: completedEvents,
-        totalReports: completedEvents, // Using completed assignments as proxy for reports
-        hoursVolunteered: completedEvents * 2, // Estimate 2 hours per completed assignment
-        assignments: assignments
-      };
-      
-      // Cache the results for 5 minutes
-      setUserStatsCache(prev => {
-        const newCache = new Map(prev);
-        newCache.set(cacheKey, userStats);
-        // Clear cache after 5 minutes
-        setTimeout(() => {
-          setUserStatsCache(currentCache => {
-            const updatedCache = new Map(currentCache);
-            updatedCache.delete(cacheKey);
-            return updatedCache;
-          });
-        }, 5 * 60 * 1000); // 5 minutes
-        return newCache;
-      });
-      
-      // Update user object with real statistics
+      // Update user object with complete data and statistics
       setSelectedUser({
-        ...user,
-        ...userStats
+        ...completeUserData, // Use complete user data from database
+        ...userStats // Add statistics
       });
       
     } catch (error) {
-      console.error('Error fetching user statistics:', error);
+      console.error('Error fetching user data or statistics:', error);
       // Set user with default values if API fails
       const defaultStats = {
         totalEvents: 0,
@@ -293,7 +296,7 @@ function Dashboard() {
       };
       
       setSelectedUser({
-        ...user,
+        ...user, // Use basic user data from online users if API fails
         ...defaultStats
       });
     } finally {

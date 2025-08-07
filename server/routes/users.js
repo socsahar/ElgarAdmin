@@ -17,6 +17,41 @@ const requireSuperRole = (req, res, next) => {
 };
 
 /**
+ * Get single user by ID
+ */
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .select(`
+        id, username, full_name, phone_number, id_number, position, role, 
+        has_car, car_type, license_plate, car_color, photo_url,
+        is_active, created_at, updated_at
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user:', error);
+      return res.status(404).json({ 
+        error: 'המשתמש לא נמצא',
+        message: 'User not found' 
+      });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Get single user error:', error);
+    res.status(500).json({ 
+      error: 'שגיאת שרת',
+      message: 'Server error' 
+    });
+  }
+});
+
+/**
  * Get all users
  */
 router.get('/', auth, async (req, res) => {
