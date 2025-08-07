@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { supabase } = require('../config/supabase');
+const { supabase, supabaseAdmin } = require('../config/supabase');
 const { authMiddleware: auth } = require('../middleware/auth');
 
 // Configure multer for memory storage (we'll upload directly to Supabase)
@@ -80,8 +80,8 @@ router.post('/profile-photo', auth, (req, res) => {
       
       // Delete existing photo for this user if userId is provided
       if (userId) {
-        // List all files for this user and delete them
-        const { data: existingFiles } = await supabase.storage
+        // List all files for this user and delete them using admin client
+        const { data: existingFiles } = await supabaseAdmin.storage
           .from('uploads')
           .list('profile-photos', {
             search: userId
@@ -90,7 +90,7 @@ router.post('/profile-photo', auth, (req, res) => {
         if (existingFiles && existingFiles.length > 0) {
           for (const existingFile of existingFiles) {
             if (existingFile.name.startsWith(`${userId}.`)) {
-              await supabase.storage
+              await supabaseAdmin.storage
                 .from('uploads')
                 .remove([`profile-photos/${existingFile.name}`]);
               console.log('🗑️ Deleted existing photo:', existingFile.name);
@@ -99,8 +99,8 @@ router.post('/profile-photo', auth, (req, res) => {
         }
       }
       
-      // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
+      // Upload file to Supabase Storage using admin client to bypass RLS
+      const { data, error } = await supabaseAdmin.storage
         .from('uploads')
         .upload(filePath, file.buffer, {
           contentType: file.mimetype,
@@ -123,8 +123,8 @@ router.post('/profile-photo', auth, (req, res) => {
         });
       }
       
-      // Get public URL for the uploaded file
-      const { data: publicData } = supabase.storage
+      // Get public URL for the uploaded file using admin client
+      const { data: publicData } = supabaseAdmin.storage
         .from('uploads')
         .getPublicUrl(filePath);
       
@@ -186,7 +186,7 @@ router.delete('/profile-photo/:filename', auth, async (req, res) => {
     
     // If filename is just a number (ID), find all files with that ID
     if (/^\d+$/.test(filename)) {
-      const { data: files } = await supabase.storage
+      const { data: files } = await supabaseAdmin.storage
         .from('uploads')
         .list('profile-photos', {
           search: filename
@@ -203,7 +203,7 @@ router.delete('/profile-photo/:filename', auth, async (req, res) => {
     }
     
     if (filesToDelete.length > 0) {
-      const { error } = await supabase.storage
+      const { error } = await supabaseAdmin.storage
         .from('uploads')
         .remove(filesToDelete);
         
@@ -258,8 +258,8 @@ router.get('/test', auth, async (req, res) => {
   try {
     console.log('🔍 Testing Supabase Storage connection...');
     
-    // Test 1: List buckets
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    // Test 1: List buckets using admin client
+    const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
     
     if (bucketsError) {
       console.error('❌ Buckets error:', bucketsError);
@@ -280,8 +280,8 @@ router.get('/test', auth, async (req, res) => {
       });
     }
     
-    // Test 3: List files in profile-photos folder
-    const { data: files, error: filesError } = await supabase.storage
+    // Test 3: List files in profile-photos folder using admin client
+    const { data: files, error: filesError } = await supabaseAdmin.storage
       .from('uploads')
       .list('profile-photos', { limit: 5 });
       
