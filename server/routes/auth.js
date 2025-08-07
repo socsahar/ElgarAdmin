@@ -76,7 +76,7 @@ router.post('/login', async (req, res) => {
       // Find user in Supabase database by username
       let { data: users, error } = await supabaseAdmin
         .from('users')
-        .select('id, username, password_hash, role, full_name, is_active, must_change_password, updated_at')
+        .select('id, username, password_hash, role, full_name, is_active, must_change_password, updated_at, photo_url, position')
         .eq('username', username)
         .single();
 
@@ -175,7 +175,10 @@ router.post('/login', async (req, res) => {
           id: users.id,
           name: users.username, // Use username as name since no name field exists
           username: users.username,
+          full_name: users.full_name,
           role: users.role.toLowerCase(),
+          photo_url: users.photo_url,
+          position: users.position,
           permissions: {
             canManageUsers: true,
             canManageIncidents: true,
@@ -292,7 +295,7 @@ router.get('/me', auth, async (req, res) => {
   try {
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .select('id, full_name, username, role, created_at, is_active, id_number, photo_url, must_change_password')
+      .select('id, full_name, username, role, created_at, is_active, id_number, photo_url, must_change_password, position')
       .eq('id', req.user.id)
       .single();
 

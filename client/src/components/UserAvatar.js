@@ -20,19 +20,32 @@ const UserAvatar = ({
       setImageError(false);
       setImageUrl(null);
 
-      // First check if user has a photo_url (legacy support)
+      // First check if user has a photo_url
       if (user?.photo_url) {
-        const url = user.photo_url.startsWith('http') 
-          ? user.photo_url 
-          : `/uploads/profile-photos/${user.photo_url}`;
+        // If it's already a full URL (Supabase), use it directly
+        if (user.photo_url.startsWith('http')) {
+          setImageUrl(user.photo_url);
+          return;
+        }
+        // If it's a relative path or filename, try to construct full URL
+        if (user.photo_url.includes('supabase.co')) {
+          setImageUrl(user.photo_url);
+          return;
+        }
+        // Legacy support for old local paths
+        const url = `/uploads/profile-photos/${user.photo_url}`;
         setImageUrl(url);
         return;
       }
 
-      // If no photo_url, try to find photo by ID number
+      // If no photo_url but we have id_number, try to find photo in Supabase
       if (user?.id_number) {
+        // Construct Supabase URL - try common extensions
+        const supabaseBaseUrl = 'https://smchvtbqzqssywlgshjj.supabase.co/storage/v1/object/public/uploads/profile-photos';
+        const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        
         // Try the most common extension first (jpg)
-        const photoUrl = `/uploads/profile-photos/${user.id_number}.jpg`;
+        const photoUrl = `${supabaseBaseUrl}/${user.id_number}.jpg`;
         setImageUrl(photoUrl);
         return;
       }
@@ -45,12 +58,30 @@ const UserAvatar = ({
   }, [user?.photo_url, user?.id_number]);
 
   const handleImageError = () => {
-    // If we tried .jpg and it failed, try other extensions
-    if (imageUrl && user?.id_number && imageUrl.includes('.jpg')) {
+    console.log('❌ Image load error for:', imageUrl);
+    
+    // If we tried a Supabase URL and it failed, try other extensions
+    if (imageUrl && user?.id_number && imageUrl.includes('supabase.co')) {
+      const supabaseBaseUrl = 'https://smchvtbqzqssywlgshjj.supabase.co/storage/v1/object/public/uploads/profile-photos';
+      const alternatives = ['jpeg', 'png', 'gif', 'webp'];
+      
+      for (const ext of alternatives) {
+        const altUrl = `${supabaseBaseUrl}/${user.id_number}.${ext}`;
+        if (altUrl !== imageUrl) {
+          console.log('🔄 Trying alternative URL:', altUrl);
+          setImageUrl(altUrl);
+          return;
+        }
+      }
+    }
+    
+    // If we tried local paths and they failed, try other extensions
+    if (imageUrl && user?.id_number && imageUrl.includes('/uploads/profile-photos/')) {
       const alternatives = ['jpeg', 'png', 'gif', 'webp'];
       for (const ext of alternatives) {
         const altUrl = `/uploads/profile-photos/${user.id_number}.${ext}`;
         if (altUrl !== imageUrl) {
+          console.log('🔄 Trying local alternative:', altUrl);
           setImageUrl(altUrl);
           return;
         }
@@ -58,6 +89,7 @@ const UserAvatar = ({
     }
     
     // If all attempts failed, mark as error
+    console.log('💥 All photo attempts failed for user:', user?.id_number);
     setImageError(true);
   };
 
