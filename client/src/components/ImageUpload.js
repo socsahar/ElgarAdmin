@@ -84,7 +84,31 @@ const ImageUpload = ({
       
     } catch (err) {
       console.error('Upload error:', err);
-      setError(err.message || 'שגיאה בהעלאת התמונה');
+      
+      // Better error handling
+      let errorMessage = 'שגיאה בהעלאת התמונה';
+      
+      if (err.response) {
+        // Server responded with error status
+        console.error('Server error response:', err.response);
+        if (err.response.data?.error) {
+          errorMessage = err.response.data.error;
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message;
+        } else {
+          errorMessage = `שגיאת שרת: ${err.response.status}`;
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        console.error('Network error:', err.request);
+        errorMessage = 'שגיאת רשת - אין תגובה מהשרת';
+      } else {
+        // Something else happened
+        console.error('Error message:', err.message);
+        errorMessage = err.message || 'שגיאה לא ידועה';
+      }
+      
+      setError(errorMessage);
     } finally {
       setUploading(false);
     }

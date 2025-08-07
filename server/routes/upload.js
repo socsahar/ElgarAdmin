@@ -27,22 +27,40 @@ const upload = multer({
  * Optional query parameter: userId (ID number for renaming)
  */
 router.post('/profile-photo', auth, (req, res) => {
+  console.log('📤 Profile photo upload request received:', {
+    user: req.user?.username,
+    query: req.query,
+    headers: {
+      'content-type': req.headers['content-type'],
+      'content-length': req.headers['content-length']
+    }
+  });
+  
   upload.single('profilePhoto')(req, res, async (err) => {
     if (err) {
-      console.error('❌ Upload error:', err.message);
+      console.error('❌ Multer upload error:', err);
       return res.status(400).json({
         error: err.message.includes('רק קבצי תמונה') ? err.message : 'שגיאה בהעלאת הקובץ',
-        message: 'Upload error'
+        message: 'Upload error',
+        details: err.message
       });
     }
     
     // Check if file was uploaded
     if (!req.file) {
+      console.warn('⚠️ No file uploaded in request');
       return res.status(400).json({
         error: 'לא נבחר קובץ להעלאה',
         message: 'No file selected'
       });
     }
+    
+    console.log('📁 File received:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      buffer: req.file.buffer ? 'Present' : 'Missing'
+    });
     
     try {
       const { userId } = req.query;
@@ -90,11 +108,18 @@ router.post('/profile-photo', auth, (req, res) => {
         });
       
       if (error) {
-        console.error('❌ Supabase upload error:', error);
+        console.error('❌ Supabase upload error:', {
+          message: error.message,
+          name: error.name,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         return res.status(500).json({
           error: 'שגיאה בהעלאה לאחסון הענן',
           message: 'Cloud storage upload failed',
-          details: error.message
+          details: error.message,
+          supabaseError: error
         });
       }
       
@@ -126,11 +151,16 @@ router.post('/profile-photo', auth, (req, res) => {
       });
       
     } catch (error) {
-      console.error('❌ Error uploading to Supabase:', error);
+      console.error('❌ Unexpected error uploading to Supabase:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       res.status(500).json({
         error: 'שגיאה בעיבוד הקובץ',
         message: 'Error processing file',
-        details: error.message
+        details: error.message,
+        type: 'UnexpectedError'
       });
     }
   });
@@ -218,6 +248,71 @@ router.get('/info', auth, (req, res) => {
       english: 'Upload clear passport photo up to 5MB - stored in secure cloud storage'
     }
   });
+});
+
+/**
+ * Test Supabase Storage connection
+ * GET /api/upload/test
+ */
+router.get('/test', auth, async (req, res) => {
+  try {
+    console.log('🔍 Testing Supabase Storage connection...');
+    
+    // Test 1: List buckets
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    
+    if (bucketsError) {
+      console.error('❌ Buckets error:', bucketsError);
+      return res.status(500).json({
+        error: 'Cannot list buckets',
+        details: bucketsError
+      });
+    }
+    
+    console.log('📁 Available buckets:', buckets?.map(b => b.name));
+    
+    // Test 2: Check uploads bucket specifically
+    const uploadsBucket = buckets?.find(b => b.name === 'uploads');
+    if (!uploadsBucket) {
+      return res.status(500).json({
+        error: 'uploads bucket not found',
+        availableBuckets: buckets?.map(b => b.name) || []
+      });
+    }
+    
+    // Test 3: List files in profile-photos folder
+    const { data: files, error: filesError } = await supabase.storage
+      .from('uploads')
+      .list('profile-photos', { limit: 5 });
+      
+    if (filesError) {
+      console.error('❌ Files listing error:', filesError);
+      return res.status(500).json({
+        error: 'Cannot list profile photos',
+        details: filesError
+      });
+    }
+    
+    console.log('📷 Profile photos found:', files?.length || 0);
+    
+    res.json({
+      success: true,
+      message: 'Supabase Storage connection successful',
+      data: {
+        bucketsFound: buckets?.length || 0,
+        uploadsBucket: uploadsBucket ? 'Found' : 'Not found',
+        profilePhotosCount: files?.length || 0,
+        sampleFiles: files?.slice(0, 3).map(f => f.name) || []
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Supabase test error:', error);
+    res.status(500).json({
+      error: 'Supabase connection test failed',
+      details: error.message
+    });
+  }
 });
 
 module.exports = router;
