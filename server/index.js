@@ -237,9 +237,12 @@ io.on('connection', (socket) => {
     try {
       console.log('🔐 Admin joining:', userData?.username || 'Unknown');
       
+      // Normalize user ID field (frontend might send userId or id)
+      const userId = userData?.id || userData?.userId;
+      
       // Validate required user data
       if (!userData || 
-          !userData.id || 
+          !userId || 
           !userData.username || 
           !userData.full_name ||
           userData.full_name.trim() === '' ||
@@ -253,9 +256,9 @@ io.on('connection', (socket) => {
         return;
       }
       
-      // Store user information (with validation)
+      // Store user information (with normalized ID)
       socket.userInfo = {
-        id: userData.id,
+        id: userId, // Use normalized ID
         username: userData.username.trim(),
         full_name: userData.full_name.trim(),
         role: userData.role || 'סייר',
