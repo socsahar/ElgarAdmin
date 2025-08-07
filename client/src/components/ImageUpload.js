@@ -80,6 +80,7 @@ const ImageUpload = ({
       
       // Call onChange with the full Supabase URL instead of just filename
       // This ensures the correct URL is saved to the database (v2.0)
+      console.log('📸 ImageUpload calling onChange with full URL:', data.data.url);
       onChange(data.data.url);
       
     } catch (err) {
