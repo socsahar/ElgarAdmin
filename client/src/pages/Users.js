@@ -79,7 +79,7 @@ const Users = () => {
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState(null);
   const { isSuperRole, user: currentUser } = useAuth();
-  const { canModifyPrivileges, canManageUser, canManageRole, hasPermission } = usePermissions();
+  const { canModifyPrivileges, canManageUser, canManageRole, hasPermission, isManagementRole } = usePermissions();
 
   // Hebrew role options
   const allRoles = [
@@ -493,7 +493,7 @@ const Users = () => {
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            {hasPermission('access_users_crud') && (
+            {hasPermission('access_users_crud') && isManagementRole() && (
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -629,7 +629,7 @@ const Users = () => {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        {canManageUser(user) && user.username !== 'admin' && user.id !== currentUser?.id && (
+                        {isManagementRole() && canManageUser(user) && user.username !== 'admin' && user.id !== currentUser?.id && (
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                             <Tooltip title="עריכה">
                               <IconButton
@@ -1094,7 +1094,7 @@ const Users = () => {
         </DialogContent>
         
         <DialogActions sx={{ p: 3, pt: 0 }}>
-          {hasPermission('access_users_crud') && canManageUser(selectedUserDetails) && selectedUserDetails?.id !== currentUser?.id && (
+          {isManagementRole() && hasPermission('access_users_crud') && canManageUser(selectedUserDetails) && selectedUserDetails?.id !== currentUser?.id && (
             <Button 
               onClick={() => handleResetPassword(selectedUserDetails)}
               variant="outlined"

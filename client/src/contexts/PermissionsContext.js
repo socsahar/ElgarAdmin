@@ -90,13 +90,14 @@ export const PermissionsProvider = ({ children }) => {
     // Check if current user exists
     if (!user || !targetUser) return false;
     
-    // Super roles can manage anyone in their hierarchy
+    // Only management roles can manage users - strict hierarchy
     if (user.role === 'מפתח') return true;
     if (user.role === 'אדמין' && targetUser.role !== 'מפתח') return true;
     if (user.role === 'פיקוד יחידה' && !['מפתח', 'אדמין'].includes(targetUser.role)) return true;
-    if (user.role === 'מפקד משל"ט' && !['מפתח', 'אדמין', 'פיקוד יחידה'].includes(targetUser.role)) return true;
     
-    return manageableRoles.includes(targetUser.role) || user.role === targetUser.role;
+    // NO OTHER ROLES can manage users - remove the permissive fallback
+    // סייר, מוקדן, מפקד משל"ט cannot manage ANY users
+    return false;
   };
 
   // Permission shortcuts for common checks
