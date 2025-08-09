@@ -63,6 +63,48 @@ const EventManagement = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
+  // Validation functions
+  const validateVehicleField = (value) => {
+    // Allow only Hebrew letters, English letters, numbers, spaces, and hyphens
+    const allowedPattern = /^[א-ת\u0590-\u05FF\u200F\u200Ea-zA-Z0-9\s\-]*$/;
+    return allowedPattern.test(value);
+  };
+
+  const validateLicensePlate = (value) => {
+    // Allow only numbers and hyphens
+    const licensePlatePattern = /^[0-9\-]*$/;
+    return licensePlatePattern.test(value);
+  };
+
+  const validateUrl = (value) => {
+    if (!value) return true; // Allow empty URL
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  const handleVehicleFieldChange = (field, value) => {
+    // Remove special characters except allowed ones
+    const sanitizedValue = value.replace(/[^א-ת\u0590-\u05FF\u200F\u200Ea-zA-Z0-9\s\-]/g, '');
+    setEventForm({ ...eventForm, [field]: sanitizedValue });
+  };
+
+  const handleLicensePlateChange = (value) => {
+    // Remove everything except numbers and hyphens
+    const sanitizedValue = value.replace(/[^0-9\-]/g, '');
+    setEventForm({ ...eventForm, license_plate: sanitizedValue });
+  };
+
+  const handleUrlChange = (value) => {
+    // Only update if it's a valid URL or empty
+    if (value === '' || validateUrl(value)) {
+      setEventForm({ ...eventForm, tracking_url: value });
+    }
+  };
+  
   // State management
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1108,8 +1150,10 @@ const EventManagement = () => {
                 fullWidth
                 label="לוחית רישוי"
                 value={eventForm.license_plate}
-                onChange={(e) => setEventForm({ ...eventForm, license_plate: e.target.value })}
+                onChange={(e) => handleLicensePlateChange(e.target.value)}
                 required
+                helperText="רק מספרים ומקפים מותרים (לדוגמה: 123-45-678)"
+                placeholder="123-45-678"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1119,8 +1163,9 @@ const EventManagement = () => {
                 fullWidth
                 label="סוג רכב"
                 value={eventForm.car_model}
-                onChange={(e) => setEventForm({ ...eventForm, car_model: e.target.value })}
+                onChange={(e) => handleVehicleFieldChange('car_model', e.target.value)}
                 required
+                helperText="רק אותיות, מספרים, רווחים ומקפים מותרים"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1130,9 +1175,10 @@ const EventManagement = () => {
                 fullWidth
                 label="צבע רכב"
                 value={eventForm.car_color}
-                onChange={(e) => setEventForm({ ...eventForm, car_color: e.target.value })}
+                onChange={(e) => handleVehicleFieldChange('car_color', e.target.value)}
                 required
                 placeholder="אם לא ידוע יש לרשום לא ידוע"
+                helperText="רק אותיות, מספרים, רווחים ומקפים מותרים"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1177,8 +1223,12 @@ const EventManagement = () => {
                   fullWidth
                   label="קישור למיקום חי של הרכב"
                   value={eventForm.tracking_url}
-                  onChange={(e) => setEventForm({ ...eventForm, tracking_url: e.target.value })}
+                  onChange={(e) => handleUrlChange(e.target.value)}
                   placeholder="https://maps.google.com/live-track..."
+                  error={eventForm.tracking_url && !validateUrl(eventForm.tracking_url)}
+                  helperText={eventForm.tracking_url && !validateUrl(eventForm.tracking_url) 
+                    ? "נא להזין כתובת URL תקינה (מתחילה ב-http:// או https://)" 
+                    : "כתובת URL תקינה בלבד"}
                 />
               </Grid>
             )}
