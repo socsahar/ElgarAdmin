@@ -34,6 +34,8 @@ import {
   List,
   ListItem,
   useTheme,
+  useMediaQuery,
+  Menu,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -48,6 +50,7 @@ import {
   FilterList as FilterIcon,
   Close as CloseIcon,
   PersonAdd as PersonAddIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
@@ -58,6 +61,7 @@ import { hasPermission } from '../utils/permissions';
 const EventManagement = () => {
   const { user } = useAuth();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // State management
   const [events, setEvents] = useState([]);
@@ -71,6 +75,10 @@ const EventManagement = () => {
   const [selectedVolunteers, setSelectedVolunteers] = useState([]);
   const [closureReason, setClosureReason] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // Mobile menu state
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [menuEvent, setMenuEvent] = useState(null);
   
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -429,6 +437,39 @@ const EventManagement = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  // Mobile menu handlers
+  const handleMobileMenuOpen = (event, eventData) => {
+    setAnchorEl(event.currentTarget);
+    setMenuEvent(eventData);
+  };
+
+  const handleMobileMenuClose = () => {
+    setAnchorEl(null);
+    setMenuEvent(null);
+  };
+
+  const handleMobileAction = (action) => {
+    if (!menuEvent) return;
+    
+    switch (action) {
+      case 'edit':
+        handleEditEvent(menuEvent);
+        break;
+      case 'assign':
+        handleAssignVolunteers(menuEvent);
+        break;
+      case 'close':
+        handleCloseEvent(menuEvent);
+        break;
+      case 'delete':
+        handleDeleteEvent(menuEvent.id);
+        break;
+      default:
+        break;
+    }
+    handleMobileMenuClose();
+  };
+
   const getStatusColor = (status) => {
     const statusColors = {
       'דווח': 'info',
@@ -598,20 +639,151 @@ const EventManagement = () => {
             רשימת אירועים ({filteredEvents.length})
           </Typography>
           
-          <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
+          {isMobile ? (
+            // Mobile: Card Layout
+            <Grid container spacing={2}>
+              {filteredEvents.map((event, index) => (
+                <Grid item xs={12} key={event.id}>
+                  <Card 
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:hover': { boxShadow: 3 },
+                      borderRight: `4px solid ${theme.palette[getStatusColor(event.event_status)].main}`
+                    }}
+                    onClick={() => handleViewEventDetails(event)}
+                  >
+                    <CardContent sx={{ p: 2 }}>
+                      {/* Header with title and actions */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                            {event.title}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                            {event.closure_reason ? (
+                              <Tooltip title={`סיבת סגירה: ${event.closure_reason}`}>
+                                <Chip 
+                                  label="סגור" 
+                                  color="error"
+                                  size="small"
+                                />
+                              </Tooltip>
+                            ) : (
+                              <Chip 
+                                label={event.event_status} 
+                                color={getStatusColor(event.event_status)}
+                                size="small"
+                              />
+                            )}
+                            <Chip 
+                              label={event.car_status} 
+                              color={getCarStatusColor(event.car_status)}
+                              size="small"
+                              variant="outlined"
+                            />
+                            {event.needs_tracking_system && (
+                              <Chip 
+                                size="small" 
+                                label="מערכת איתור" 
+                                color="info"
+                              />
+                            )}
+                          </Box>
+                        </Box>
+                        <IconButton 
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMobileMenuOpen(e, event);
+                          }}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </Box>
+
+                      {/* Vehicle Info */}
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          🚗 {event.license_plate}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {event.car_model} - {event.car_color}
+                        </Typography>
+                      </Box>
+
+                      {/* Location */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <LocationIcon sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          {event.full_address}
+                        </Typography>
+                      </Box>
+
+                      {/* Creator and Date */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          👨‍💼 {event.creator?.full_name || event.creator?.username || 'לא ידוע'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          📅 {new Date(event.created_at).toLocaleDateString('he-IL')}
+                        </Typography>
+                      </Box>
+
+                      {/* Volunteers */}
+                      {(event.assigned_volunteers && event.assigned_volunteers.length > 0) && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            מתנדבים:
+                          </Typography>
+                          {event.assigned_volunteers.slice(0, 3).map((assignment, index) => {
+                            const volunteer = assignment.volunteer || assignment;
+                            return (
+                              <UserAvatar 
+                                key={volunteer.id || index}
+                                user={volunteer}
+                                size={20}
+                                roleColor="primary"
+                                clickable={false}
+                              />
+                            );
+                          })}
+                          {event.assigned_volunteers.length > 3 && (
+                            <Typography variant="caption" color="text.secondary">
+                              +{event.assigned_volunteers.length - 3}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+
+                      {/* Event Number */}
+                      <Box sx={{ textAlign: 'right', mt: 1 }}>
+                        <Chip 
+                          label={`אירוע #${events.findIndex(e => e.id === event.id) + 1}`}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            // Desktop: Table Layout
+            <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
                   <TableCell><strong>כותרת</strong></TableCell>
-                  <TableCell><strong>מיקום</strong></TableCell>
+                  {!isMobile && <TableCell><strong>מיקום</strong></TableCell>}
                   <TableCell><strong>פרטי רכב</strong></TableCell>
                   <TableCell><strong>סטטוס אירוע</strong></TableCell>
-                  <TableCell><strong>סטטוס רכב</strong></TableCell>
-                  <TableCell><strong>מתנדבים</strong></TableCell>
-                  <TableCell><strong>נוצר ע"י</strong></TableCell>
-                  <TableCell><strong>תאריך יצירה</strong></TableCell>
+                  {!isMobile && <TableCell><strong>סטטוס רכב</strong></TableCell>}
+                  {!isMobile && <TableCell><strong>מתנדבים</strong></TableCell>}
+                  {!isMobile && <TableCell><strong>נוצר ע"י</strong></TableCell>}
+                  {!isMobile && <TableCell><strong>תאריך יצירה</strong></TableCell>}
                   <TableCell><strong>פעולות</strong></TableCell>
-                  <TableCell><strong>מספר אירוע</strong></TableCell>
+                  {!isMobile && <TableCell><strong>מספר אירוע</strong></TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -635,16 +807,32 @@ const EventManagement = () => {
                             sx={{ mt: 0.5 }}
                           />
                         )}
+                        {/* Show additional info on mobile */}
+                        {isMobile && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              📍 {event.full_address}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              👨‍💼 {event.creator?.full_name || 'לא ידוע'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              📅 {new Date(event.created_at).toLocaleString('he-IL')}
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
                     </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <LocationIcon sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
-                        <Typography variant="body2">
-                          {event.full_address}
-                        </Typography>
-                      </Box>
-                    </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <LocationIcon sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
+                          <Typography variant="body2">
+                            {event.full_address}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -653,6 +841,17 @@ const EventManagement = () => {
                         <Typography variant="caption" color="text.secondary">
                           {event.car_model} - {event.car_color}
                         </Typography>
+                        {/* Show car status on mobile */}
+                        {isMobile && (
+                          <Box sx={{ mt: 0.5 }}>
+                            <Chip 
+                              label={event.car_status} 
+                              color={getCarStatusColor(event.car_status)}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Box>
+                        )}
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -671,124 +870,176 @@ const EventManagement = () => {
                           size="small"
                         />
                       )}
+                      {/* Show volunteers on mobile */}
+                      {isMobile && (
+                        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {(event.assigned_volunteers || []).slice(0, 2).map((assignment, index) => {
+                            const volunteer = assignment.volunteer || assignment;
+                            return (
+                              <UserAvatar 
+                                key={volunteer.id || index}
+                                user={volunteer}
+                                size={20}
+                                roleColor="primary"
+                                clickable={false}
+                              />
+                            );
+                          })}
+                          {(event.assigned_volunteers || []).length > 2 && (
+                            <Typography variant="caption">
+                              +{(event.assigned_volunteers || []).length - 2}
+                            </Typography>
+                          )}
+                          {(!event.assigned_volunteers || event.assigned_volunteers.length === 0) && (
+                            <Typography variant="caption" color="text.secondary">
+                              לא הוקצה
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
                     </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Chip 
+                          label={event.car_status} 
+                          color={getCarStatusColor(event.car_status)}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {(event.assigned_volunteers || []).slice(0, 2).map((assignment, index) => {
+                            const volunteer = assignment.volunteer || assignment;
+                            return (
+                              <UserAvatar 
+                                key={volunteer.id || index}
+                                user={volunteer}
+                                size={24}
+                                roleColor="primary"
+                                clickable={false}
+                              />
+                            );
+                          })}
+                          {(event.assigned_volunteers || []).length > 2 && (
+                            <Typography variant="caption">
+                              +{(event.assigned_volunteers || []).length - 2}
+                            </Typography>
+                          )}
+                          {(!event.assigned_volunteers || event.assigned_volunteers.length === 0) && (
+                            <Typography variant="caption" color="text.secondary">
+                              לא הוקצה
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant="body2">
+                          {event.creator?.full_name || event.creator?.username || 'לא ידוע'}
+                        </Typography>
+                      </TableCell>
+                    )}
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant="body2">
+                          {new Date(event.created_at).toLocaleString('he-IL')}
+                        </Typography>
+                      </TableCell>
+                    )}
                     <TableCell>
-                      <Chip 
-                        label={event.car_status} 
-                        color={getCarStatusColor(event.car_status)}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {(event.assigned_volunteers || []).slice(0, 2).map((assignment, index) => {
-                          const volunteer = assignment.volunteer || assignment;
-                          return (
-                            <UserAvatar 
-                              key={volunteer.id || index}
-                              user={volunteer}
-                              size={24}
-                              roleColor="primary"
-                              clickable={false}
-                            />
-                          );
-                        })}
-                        {(event.assigned_volunteers || []).length > 2 && (
-                          <Typography variant="caption">
-                            +{(event.assigned_volunteers || []).length - 2}
-                          </Typography>
-                        )}
-                        {(!event.assigned_volunteers || event.assigned_volunteers.length === 0) && (
-                          <Typography variant="caption" color="text.secondary">
-                            לא הוקצה
-                          </Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {event.creator?.full_name || event.creator?.username || 'לא ידוע'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {new Date(event.created_at).toLocaleString('he-IL')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Tooltip title={event.closure_reason ? "אירוע סגור - לא ניתן לעריכה" : "עריכה"}>
-                          <span>
-                            <IconButton 
-                              size="small" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditEvent(event);
-                              }}
-                              disabled={!!event.closure_reason}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title={event.closure_reason ? "אירוע סגור - לא ניתן להקצות מתנדבים" : "הקצאת מתנדבים"}>
-                          <span>
-                            <IconButton 
-                              size="small" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAssignVolunteers(event);
-                              }}
-                              disabled={!!event.closure_reason}
-                            >
-                              <AssignIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        {!event.closure_reason && event.event_status !== 'הסתיים' && (
-                          <Tooltip title="סגירת אירוע">
-                            <IconButton 
-                              size="small" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCloseEvent(event);
-                              }}
-                              color="warning"
-                            >
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {hasPermission(user, 'access_events_delete') && (
-                          <Tooltip title={event.closure_reason ? "אירוע סגור - לא ניתן למחיקה" : "מחיקה"}>
+                      {isMobile ? (
+                        // Mobile: Show menu button
+                        <IconButton 
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMobileMenuOpen(e, event);
+                          }}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      ) : (
+                        // Desktop: Show all action buttons
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Tooltip title={event.closure_reason ? "אירוע סגור - לא ניתן לעריכה" : "עריכה"}>
                             <span>
                               <IconButton 
                                 size="small" 
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteEvent(event.id);
+                                  handleEditEvent(event);
                                 }}
-                                color="error"
                                 disabled={!!event.closure_reason}
                               >
-                                <DeleteIcon fontSize="small" />
+                                <EditIcon fontSize="small" />
                               </IconButton>
                             </span>
                           </Tooltip>
-                        )}
-                      </Box>
+                          <Tooltip title={event.closure_reason ? "אירוע סגור - לא ניתן להקצות מתנדבים" : "הקצאת מתנדבים"}>
+                            <span>
+                              <IconButton 
+                                size="small" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAssignVolunteers(event);
+                                }}
+                                disabled={!!event.closure_reason}
+                              >
+                                <AssignIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          {!event.closure_reason && event.event_status !== 'הסתיים' && (
+                            <Tooltip title="סגירת אירוע">
+                              <IconButton 
+                                size="small" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCloseEvent(event);
+                                }}
+                                color="warning"
+                              >
+                                <CloseIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {hasPermission(user, 'access_events_delete') && (
+                            <Tooltip title={event.closure_reason ? "אירוע סגור - לא ניתן למחיקה" : "מחיקה"}>
+                              <span>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEvent(event.id);
+                                  }}
+                                  color="error"
+                                  disabled={!!event.closure_reason}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      )}
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {events.findIndex(e => e.id === event.id) + 1}
-                      </Typography>
-                    </TableCell>
+                    {!isMobile && (
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {events.findIndex(e => e.id === event.id) + 1}
+                        </Typography>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -1302,6 +1553,41 @@ const EventManagement = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Mobile Actions Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMobileMenuClose}
+        PaperProps={{
+          sx: { direction: 'rtl' }
+        }}
+      >
+        {menuEvent && !menuEvent.closure_reason && (
+          <MenuItem onClick={() => handleMobileAction('edit')}>
+            <EditIcon sx={{ mr: 1 }} />
+            עריכה
+          </MenuItem>
+        )}
+        {menuEvent && !menuEvent.closure_reason && (
+          <MenuItem onClick={() => handleMobileAction('assign')}>
+            <AssignIcon sx={{ mr: 1 }} />
+            הקצאת מתנדבים
+          </MenuItem>
+        )}
+        {menuEvent && !menuEvent.closure_reason && menuEvent.event_status !== 'הסתיים' && (
+          <MenuItem onClick={() => handleMobileAction('close')}>
+            <CloseIcon sx={{ mr: 1 }} />
+            סגירת אירוע
+          </MenuItem>
+        )}
+        {menuEvent && hasPermission(user, 'access_events_delete') && !menuEvent.closure_reason && (
+          <MenuItem onClick={() => handleMobileAction('delete')}>
+            <DeleteIcon sx={{ mr: 1 }} />
+            מחיקה
+          </MenuItem>
+        )}
+      </Menu>
 
       {/* Snackbar for notifications */}
       <Snackbar
