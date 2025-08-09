@@ -32,7 +32,10 @@ import {
   Tabs,
   Tab,
   Divider,
-  Avatar
+  Avatar,
+  useMediaQuery,
+  useTheme,
+  Stack
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -255,6 +258,10 @@ const ActionReports = () => {
   const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [reviewNotes, setReviewNotes] = useState('');
+  
+  // Mobile responsiveness
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Form state for creating/editing reports
   const [formData, setFormData] = useState({
@@ -523,38 +530,84 @@ const ActionReports = () => {
               אין אירועים הדורשים דוח פעולה
             </Typography>
           ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>כותרת</strong></TableCell>
-                  <TableCell><strong>תאריך</strong></TableCell>
-                  <TableCell><strong>מיקום</strong></TableCell>
-                  <TableCell><strong>פעולות</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {assignedEvents.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell>{event.title}</TableCell>
-                    <TableCell>
-                      {new Date(event.created_at).toLocaleDateString('he-IL')}
-                    </TableCell>
-                    <TableCell>{event.full_address}</TableCell>
-                    <TableCell>
-                      <Button
-                        size="small"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleCreateReport(event)}
-                        variant="contained"
-                        color="primary"
-                      >
-                        כתוב דוח
-                      </Button>
-                    </TableCell>
+            // Desktop Table View
+            !isMobile ? (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>כותרת</strong></TableCell>
+                    <TableCell><strong>תאריך</strong></TableCell>
+                    <TableCell><strong>מיקום</strong></TableCell>
+                    <TableCell><strong>פעולות</strong></TableCell>
                   </TableRow>
+                </TableHead>
+                <TableBody>
+                  {assignedEvents.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell>{event.title}</TableCell>
+                      <TableCell>
+                        {new Date(event.created_at).toLocaleDateString('he-IL')}
+                      </TableCell>
+                      <TableCell>{event.full_address}</TableCell>
+                      <TableCell>
+                        <Button
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={() => handleCreateReport(event)}
+                          variant="contained"
+                          color="primary"
+                        >
+                          כתוב דוח
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              // Mobile Card View
+              <Stack spacing={2}>
+                {assignedEvents.map((event) => (
+                  <Card key={event.id} variant="outlined" sx={{ p: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {event.title}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          תאריך:
+                        </Typography>
+                        <Typography variant="body2">
+                          {new Date(event.created_at).toLocaleDateString('he-IL')}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          מיקום:
+                        </Typography>
+                        <Typography variant="body2" noWrap>
+                          {event.full_address}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Button
+                          fullWidth
+                          startIcon={<AddIcon />}
+                          onClick={() => handleCreateReport(event)}
+                          variant="contained"
+                          color="primary"
+                          size="small"
+                        >
+                          כתוב דוח
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </Stack>
+            )
           )}
         </CardContent>
       </Card>
@@ -571,31 +624,115 @@ const ActionReports = () => {
               לא נמצאו דוחות
             </Typography>
           ) : (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>אירוע</strong></TableCell>
-                  <TableCell><strong>תאריך כתיבה</strong></TableCell>
-                  <TableCell><strong>סטטוס</strong></TableCell>
-                  <TableCell><strong>נבדק על ידי</strong></TableCell>
-                  <TableCell><strong>פעולות</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
+            // Desktop Table View
+            !isMobile ? (
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>אירוע</strong></TableCell>
+                    <TableCell><strong>תאריך כתיבה</strong></TableCell>
+                    <TableCell><strong>סטטוס</strong></TableCell>
+                    <TableCell><strong>נבדק על ידי</strong></TableCell>
+                    <TableCell><strong>פעולות</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {myReports.map((report) => (
+                    <TableRow key={report.id}>
+                      <TableCell>{report.event?.title}</TableCell>
+                      <TableCell>
+                        {new Date(report.created_at).toLocaleDateString('he-IL')}
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={report.status} 
+                          color={getStatusColor(report.status)}
+                          size="small"
+                        />
+                        {report.status === 'נדחה' && report.review_notes && (
+                          <Tooltip title={`סיבת הדחיה: ${report.review_notes}`} arrow>
+                            <Alert 
+                              severity="error" 
+                              sx={{ mt: 1 }}
+                            >
+                              <Typography variant="caption">
+                                דוח נדחה - ראה סיבה בעריכה
+                              </Typography>
+                            </Alert>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {report.reviewed_by?.full_name || 'לא נבדק'}
+                      </TableCell>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => handlePreviewReport(report.id)}
+                          title="תצוגה מקדימה"
+                        >
+                          <ViewIcon />
+                        </IconButton>
+                        {(report.status === 'נדחה' || report.status === 'טיוטה') && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditReport(report)}
+                            title="ערוך דוח"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        )}
+                        {canManageAllReports && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handlePrintReport(report.id)}
+                            title="הדפס דוח"
+                          >
+                            <PrintIcon />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              // Mobile Card View
+              <Stack spacing={2}>
                 {myReports.map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell>{report.event?.title}</TableCell>
-                    <TableCell>
-                      {new Date(report.created_at).toLocaleDateString('he-IL')}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={report.status} 
-                        color={getStatusColor(report.status)}
-                        size="small"
-                      />
-                      {report.status === 'נדחה' && report.review_notes && (
-                        <Tooltip title={`סיבת הדחיה: ${report.review_notes}`} arrow>
+                  <Card key={report.id} variant="outlined" sx={{ p: 2 }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {report.event?.title}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          תאריך כתיבה:
+                        </Typography>
+                        <Typography variant="body2">
+                          {new Date(report.created_at).toLocaleDateString('he-IL')}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          נבדק על ידי:
+                        </Typography>
+                        <Typography variant="body2">
+                          {report.reviewed_by?.full_name || 'לא נבדק'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          סטטוס:
+                        </Typography>
+                        <Chip 
+                          label={report.status} 
+                          color={getStatusColor(report.status)}
+                          size="small"
+                        />
+                        {report.status === 'נדחה' && report.review_notes && (
                           <Alert 
                             severity="error" 
                             sx={{ mt: 1 }}
@@ -604,43 +741,45 @@ const ActionReports = () => {
                               דוח נדחה - ראה סיבה בעריכה
                             </Typography>
                           </Alert>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {report.reviewed_by?.full_name || 'לא נבדק'}
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => handlePreviewReport(report.id)}
-                        title="תצוגה מקדימה"
-                      >
-                        <ViewIcon />
-                      </IconButton>
-                      {(report.status === 'נדחה' || report.status === 'טיוטה') && (
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditReport(report)}
-                          title="ערוך דוח"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      )}
-                      {canManageAllReports && (
-                        <IconButton
-                          size="small"
-                          onClick={() => handlePrintReport(report.id)}
-                          title="הדפס דוח"
-                        >
-                          <PrintIcon />
-                        </IconButton>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                        )}
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Button
+                            size="small"
+                            startIcon={<ViewIcon />}
+                            onClick={() => handlePreviewReport(report.id)}
+                            variant="outlined"
+                          >
+                            צפה
+                          </Button>
+                          {(report.status === 'נדחה' || report.status === 'טיוטה') && (
+                            <Button
+                              size="small"
+                              startIcon={<EditIcon />}
+                              onClick={() => handleEditReport(report)}
+                              variant="outlined"
+                            >
+                              ערוך
+                            </Button>
+                          )}
+                          {canManageAllReports && (
+                            <Button
+                              size="small"
+                              startIcon={<PrintIcon />}
+                              onClick={() => handlePrintReport(report.id)}
+                              variant="outlined"
+                            >
+                              הדפס
+                            </Button>
+                          )}
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </Stack>
+            )
           )}
         </CardContent>
       </Card>
@@ -658,7 +797,75 @@ const ActionReports = () => {
           <Typography variant="body2" color="text.secondary">
             לא נמצאו דוחות
           </Typography>
+        ) : isMobile ? (
+          // Mobile Card View
+          <Stack spacing={2}>
+            {reports.map((report) => (
+              <Card key={report.id} variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <UserAvatar 
+                        user={report.volunteer} 
+                        size={24} 
+                        clickable={false}
+                      />
+                      <Typography variant="subtitle2">
+                        {report.volunteer?.full_name}
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label={report.status} 
+                      color={getStatusColor(report.status)}
+                      size="small"
+                    />
+                  </Box>
+                  
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <strong>אירוע:</strong> {report.event?.title}
+                  </Typography>
+                  
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <strong>תאריך כתיבה:</strong> {new Date(report.created_at).toLocaleDateString('he-IL')}
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                    <Button
+                      size="small"
+                      startIcon={<ViewIcon />}
+                      onClick={() => handlePreviewReport(report.id)}
+                      variant="outlined"
+                    >
+                      תצוגה מקדימה
+                    </Button>
+                    {(report.status === 'הוגש' || report.status === 'נבדק') && (
+                      <Button
+                        size="small"
+                        startIcon={<ReportIcon />}
+                        onClick={() => handleReviewReport(report)}
+                        variant="outlined"
+                        color="primary"
+                      >
+                        בדוק דוח
+                      </Button>
+                    )}
+                    {canManageAllReports && (
+                      <Button
+                        size="small"
+                        startIcon={<PrintIcon />}
+                        onClick={() => handlePrintReport(report.id)}
+                        variant="outlined"
+                      >
+                        הדפס דוח
+                      </Button>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
         ) : (
+          // Desktop Table View
           <Table>
             <TableHead>
               <TableRow>

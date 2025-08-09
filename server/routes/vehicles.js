@@ -293,8 +293,15 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     
+    // Add debugging
+    console.log('🚗 Creating new vehicle request received:');
+    console.log('   - User ID:', userId);
+    console.log('   - Request body:', JSON.stringify(req.body, null, 2));
+    
     // Check if user can manage vehicles
     const canManage = await checkVehicleManagePermission(userId);
+    console.log('   - User can manage vehicles:', canManage);
+    
     if (!canManage) {
       return res.status(403).json({ 
         success: false, 
@@ -314,8 +321,18 @@ router.post('/', authMiddleware, async (req, res) => {
       owner_image_url
     } = req.body;
 
+    console.log('   - Extracted fields:');
+    console.log('     * license_plate:', license_plate);
+    console.log('     * vehicle_type:', vehicle_type);
+    console.log('     * vehicle_model:', vehicle_model);
+    console.log('     * vehicle_color:', vehicle_color);
+    console.log('     * owner_name:', owner_name);
+    console.log('     * owner_address:', owner_address);
+    console.log('     * owner_phone:', owner_phone);
+
     // Validate required fields
     if (!license_plate || !vehicle_type || !vehicle_model || !vehicle_color || !owner_name || !owner_address || !owner_phone) {
+      console.log('❌ Validation failed - missing required fields');
       return res.status(400).json({
         success: false,
         message: 'שדות חובה חסרים: מספר רכב, סוג רכב, דגם רכב, צבע רכב, שם בעלים, כתובת, טלפון'
@@ -323,6 +340,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     // Check if vehicle with this license plate already exists
+    console.log('   - Checking for existing vehicle with license plate:', license_plate);
     const { data: existingVehicle, error: checkError } = await supabaseAdmin
       .from('vehicles')
       .select('id')
@@ -330,7 +348,7 @@ router.post('/', authMiddleware, async (req, res) => {
       .single();
 
     if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error checking existing vehicle:', checkError);
+      console.error('❌ Error checking existing vehicle:', checkError);
       return res.status(500).json({
         success: false,
         message: 'שגיאה בבדיקת רכב קיים'
@@ -338,6 +356,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     if (existingVehicle) {
+      console.log('❌ Vehicle already exists with this license plate');
       return res.status(400).json({
         success: false,
         message: 'רכב עם מספר רישוי זה כבר קיים במערכת'
@@ -345,33 +364,39 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     // Insert new vehicle
+    console.log('   - Inserting new vehicle...');
+    const insertData = {
+      license_plate: license_plate.trim(),
+      vehicle_type: vehicle_type.trim(),
+      vehicle_model: vehicle_model.trim(),
+      vehicle_color: vehicle_color.trim(),
+      owner_name: owner_name.trim(),
+      owner_address: owner_address.trim(),
+      owner_phone: owner_phone.trim(),
+      vehicle_image_url: vehicle_image_url || null,
+      owner_image_url: owner_image_url || null,
+      created_by_id: userId,
+      updated_by_id: userId
+    };
+    
+    console.log('   - Insert data:', JSON.stringify(insertData, null, 2));
+    
     const { data: newVehicle, error: insertError } = await supabaseAdmin
       .from('vehicles')
-      .insert({
-        license_plate: license_plate.trim(),
-        vehicle_type: vehicle_type.trim(),
-        vehicle_model: vehicle_model.trim(),
-        vehicle_color: vehicle_color.trim(),
-        owner_name: owner_name.trim(),
-        owner_address: owner_address.trim(),
-        owner_phone: owner_phone.trim(),
-        vehicle_image_url: vehicle_image_url || null,
-        owner_image_url: owner_image_url || null,
-        created_by_id: userId,
-        updated_by_id: userId
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (insertError) {
-      console.error('Error inserting vehicle:', insertError);
+      console.error('❌ Error inserting vehicle:', insertError);
       return res.status(500).json({
         success: false,
-        message: 'שגיאה בשמירת רכב במסד הנתונים'
+        message: 'שגיאה בשמירת רכב במסד הנתונים',
+        debug: insertError.message
       });
     }
 
-    console.log('Vehicle created successfully:', newVehicle.id);
+    console.log('✅ Vehicle created successfully:', newVehicle.id);
     res.json({
       success: true,
       message: 'רכב נוסף בהצלחה',
@@ -379,10 +404,11 @@ router.post('/', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error creating vehicle:', error);
+    console.error('❌ Error creating vehicle:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'שגיאה ביצירת רכב' 
+      message: 'שגיאה ביצירת רכב',
+      debug: error.message
     });
   }
 });
