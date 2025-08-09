@@ -104,6 +104,21 @@ const EventManagement = () => {
       setEventForm({ ...eventForm, tracking_url: value });
     }
   };
+
+  // Car colors dropdown options
+  const carColors = [
+    'לבן',
+    'שחור', 
+    'אפור',
+    'כסף',
+    'אדום',
+    'צהוב',
+    'כתום',
+    'ירוק',
+    'כחול',
+    'סגול',
+    'חום'
+  ];
   
   // State management
   const [events, setEvents] = useState([]);
@@ -1169,17 +1184,26 @@ const EventManagement = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                id="event-car-color"
-                name="carColor"
-                fullWidth
-                label="צבע רכב"
-                value={eventForm.car_color}
-                onChange={(e) => handleVehicleFieldChange('car_color', e.target.value)}
-                required
-                placeholder="אם לא ידוע יש לרשום לא ידוע"
-                helperText="רק אותיות, מספרים, רווחים ומקפים מותרים"
-              />
+              <FormControl fullWidth required>
+                <Select
+                  labelId="car-color-label"
+                  id="car-color"
+                  name="carColor"
+                  value={eventForm.car_color}
+                  onChange={(e) => setEventForm({ ...eventForm, car_color: e.target.value })}
+                  label="צבע רכב"
+                  displayEmpty
+                >
+                  <MenuItem value="">
+                    <em>בחר צבע רכב</em>
+                  </MenuItem>
+                  {carColors.map((color) => (
+                    <MenuItem key={color} value={color}>
+                      {color}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth required>

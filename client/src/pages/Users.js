@@ -97,6 +97,45 @@ const Users = () => {
     return allRoles.filter(role => canManageRole(role.value));
   };
 
+  // Car colors dropdown options
+  const carColors = [
+    'לבן',
+    'שחור', 
+    'אפור',
+    'כסף',
+    'אדום',
+    'צהוב',
+    'כתום',
+    'ירוק',
+    'כחול',
+    'סגול',
+    'חום'
+  ];
+
+  // Validation functions
+  const handleNumericInput = (value) => {
+    // Allow only numbers and hyphens
+    return value.replace(/[^0-9\-]/g, '');
+  };
+
+  const handleIdNumberChange = (value) => {
+    // Remove everything except numbers for ID
+    const numericValue = value.replace(/[^0-9]/g, '');
+    setFormData({ ...formData, id_number: numericValue });
+  };
+
+  const handlePhoneChange = (value) => {
+    // Allow numbers and hyphens for phone
+    const sanitizedValue = handleNumericInput(value);
+    setFormData({ ...formData, phone_number: sanitizedValue });
+  };
+
+  const handleLicensePlateChange = (value) => {
+    // Allow numbers and hyphens for license plate
+    const sanitizedValue = handleNumericInput(value);
+    setFormData({ ...formData, license_plate: sanitizedValue });
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -732,10 +771,10 @@ const Users = () => {
                 fullWidth
                 label="מספר טלפון *"
                 value={formData.phone_number}
-                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                onChange={(e) => handlePhoneChange(e.target.value)}
                 required
-                placeholder="0501234567"
-                helperText="פורמט ישראלי: 05XXXXXXXX או 0X-XXXXXXX"
+                placeholder="050-1234567"
+                helperText="רק מספרים ומקפים - פורמט ישראלי"
               />
             </Grid>
             
@@ -746,10 +785,10 @@ const Users = () => {
                   fullWidth
                   label="תעודת זהות *"
                   value={formData.id_number}
-                  onChange={(e) => setFormData({ ...formData, id_number: e.target.value })}
+                  onChange={(e) => handleIdNumberChange(e.target.value)}
                   required
                   placeholder="123456789"
-                  helperText="9 ספרות בדיוק"
+                  helperText="9 ספרות בדיוק - רק מספרים"
                   inputProps={{ maxLength: 9 }}
                 />
               </Grid>
@@ -843,26 +882,34 @@ const Users = () => {
                 fullWidth
                 label={`לוחית רישוי ${formData.has_car ? '*' : ''}`}
                 value={formData.license_plate}
-                onChange={(e) => setFormData({ ...formData, license_plate: e.target.value })}
+                onChange={(e) => handleLicensePlateChange(e.target.value)}
                 required={formData.has_car}
                 disabled={!formData.has_car}
                 placeholder="123-45-678"
-                helperText={formData.has_car ? "מספר לוחית נדרש" : "אין רכב"}
+                helperText={formData.has_car ? "רק מספרים ומקפים" : "אין רכב"}
               />
             </Grid>
             
             {/* Car Color */}
             <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label={`צבע רכב ${formData.has_car ? '*' : ''}`}
-                value={formData.car_color}
-                onChange={(e) => setFormData({ ...formData, car_color: e.target.value })}
-                required={formData.has_car}
-                disabled={!formData.has_car}
-                placeholder="לבן, שחור, כחול"
-                helperText={formData.has_car ? "צבע הרכב נדרש" : "אין רכב"}
-              />
+              <FormControl fullWidth required={formData.has_car} disabled={!formData.has_car}>
+                <InputLabel>{`צבע רכב ${formData.has_car ? '*' : ''}`}</InputLabel>
+                <Select
+                  value={formData.car_color}
+                  onChange={(e) => setFormData({ ...formData, car_color: e.target.value })}
+                  label={`צבע רכב ${formData.has_car ? '*' : ''}`}
+                  displayEmpty
+                >
+                  <MenuItem value="">
+                    <em>{formData.has_car ? "בחר צבע רכב" : "אין רכב"}</em>
+                  </MenuItem>
+                  {carColors.map((color) => (
+                    <MenuItem key={color} value={color}>
+                      {color}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             
             {/* Active Status */}
