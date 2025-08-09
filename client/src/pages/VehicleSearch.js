@@ -50,12 +50,35 @@ import {
   Upload as UploadIcon,
   Clear as ClearIcon,
   Security as SecurityIcon,
-  People as PeopleIcon
+  People as PeopleIcon,
+  Work as WorkIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
 import UserAvatar from '../components/UserAvatar';
 import api from '../utils/api';
+
+// Car colors dropdown options
+const carColors = [
+  'לבן',
+  'שחור', 
+  'אפור',
+  'כסף',
+  'אדום',
+  'צהוב',
+  'כחול',
+  'כחול כהה',
+  'ירוק',
+  'ירוק כהה',
+  'חום',
+  'בז\'',
+  'תכלת',
+  'ורוד',
+  'סגול',
+  'כתום',
+  'זהב',
+  'ברונזה'
+];
 
 const VehicleSearch = () => {
   const { user } = useAuth();
@@ -124,6 +147,37 @@ const VehicleSearch = () => {
   const [vehicleImagePreview, setVehicleImagePreview] = useState('');
   const [ownerImagePreview, setOwnerImagePreview] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+
+  // Validation functions
+  const handleVehicleTypeChange = (value) => {
+    // Remove special characters, allow letters, numbers, spaces, hyphens
+    const sanitizedValue = value.replace(/[^א-ת\u0590-\u05FF\u200F\u200Ea-zA-Z0-9\s\-]/g, '');
+    setVehicleForm(prev => ({ ...prev, vehicleType: sanitizedValue }));
+  };
+
+  const handleLicensePlateChange = (value) => {
+    // Only numbers and hyphens
+    const sanitizedValue = value.replace(/[^0-9\-]/g, '');
+    setVehicleForm(prev => ({ ...prev, licensePlate: sanitizedValue }));
+  };
+
+  const handleVehicleModelChange = (value) => {
+    // Allow letters, numbers, spaces, hyphens, and apostrophes
+    const sanitizedValue = value.replace(/[^א-ת\u0590-\u05FF\u200F\u200Ea-zA-Z0-9\s\-']/g, '');
+    setVehicleForm(prev => ({ ...prev, vehicleModel: sanitizedValue }));
+  };
+
+  const handleOwnerNameChange = (value) => {
+    // Only letters and spaces
+    const sanitizedValue = value.replace(/[^א-ת\u0590-\u05FF\u200F\u200Ea-zA-Z\s]/g, '');
+    setVehicleForm(prev => ({ ...prev, ownerName: sanitizedValue }));
+  };
+
+  const handleOwnerPhoneChange = (value) => {
+    // Only numbers and hyphens
+    const sanitizedValue = value.replace(/[^0-9-]/g, '');
+    setVehicleForm(prev => ({ ...prev, ownerPhone: sanitizedValue }));
+  };
 
   // Load admin data on component mount if user has management access
   useEffect(() => {
@@ -283,6 +337,18 @@ const VehicleSearch = () => {
       try {
         const response = await api.get(`/api/vehicles/search?query=${encodeURIComponent(searchTerm.trim())}`);
         
+        // Debug logging for API response
+        console.log('🔍 API Response:', response.data);
+        if (response.data.data && response.data.data.length > 0) {
+          console.log('🔍 First vehicle from API:', response.data.data[0]);
+          const targetVehicle = response.data.data.find(v => v.license_plate === '856-62-702');
+          if (targetVehicle) {
+            console.log('🎯 Target vehicle from API:', targetVehicle);
+            console.log('   - is_system_user_vehicle:', targetVehicle.is_system_user_vehicle);
+            console.log('   - system_user:', targetVehicle.system_user);
+          }
+        }
+        
         if (response.data.success) {
           setSearchResults(Array.isArray(response.data.data) ? response.data.data : []);
         } else {
@@ -319,6 +385,15 @@ const VehicleSearch = () => {
     
     try {
       const response = await api.get(`/api/vehicles/search?query=${encodeURIComponent(searchTerm.trim())}`);
+      
+      // Debug logging for real-time search
+      console.log('🔍 Real-time API Response:', response.data);
+      if (response.data.data && response.data.data.length > 0) {
+        const targetVehicle = response.data.data.find(v => v.license_plate === '856-62-702');
+        if (targetVehicle) {
+          console.log('🎯 Real-time target vehicle:', targetVehicle);
+        }
+      }
       
       if (response.data.success) {
         setSearchResults(Array.isArray(response.data.data) ? response.data.data : []);
@@ -941,6 +1016,11 @@ const VehicleSearch = () => {
         ownerImagePreview={ownerImagePreview}
         loading={formLoading}
         onSubmit={submitVehicleForm}
+        handleVehicleTypeChange={handleVehicleTypeChange}
+        handleLicensePlateChange={handleLicensePlateChange}
+        handleVehicleModelChange={handleVehicleModelChange}
+        handleOwnerNameChange={handleOwnerNameChange}
+        handleOwnerPhoneChange={handleOwnerPhoneChange}
       />
 
       {/* Image Enlargement Modal */}
@@ -1000,7 +1080,17 @@ const VehicleSearch = () => {
 };
 
 // Vehicle Card Component for Search Results
-const VehicleCard = ({ vehicle, onImageClick }) => (
+const VehicleCard = ({ vehicle, onImageClick }) => {
+  // Debug logging
+  console.log('🔍 VehicleCard received vehicle:', vehicle.license_plate);
+  console.log('  - is_system_user_vehicle:', vehicle.is_system_user_vehicle);
+  console.log('  - system_user:', vehicle.system_user);
+  if (vehicle.system_user) {
+    console.log('  - badge:', vehicle.system_user.badge);
+    console.log('  - photo_url:', vehicle.system_user.photo_url);
+  }
+  
+  return (
   <Card sx={{ 
     borderRadius: 2, 
     border: '1px solid #e0e6ed',
@@ -1011,8 +1101,8 @@ const VehicleCard = ({ vehicle, onImageClick }) => (
     }
   }}>
     <CardContent sx={{ p: 3 }}>
-      {/* License Plate Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+      {/* License Plate Header with System User Badge */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, flexDirection: 'column', gap: 1 }}>
         <Chip
           icon={<CarIcon />}
           label={vehicle.license_plate}
@@ -1024,6 +1114,21 @@ const VehicleCard = ({ vehicle, onImageClick }) => (
             px: 2
           }}
         />
+        {vehicle.is_system_user_vehicle && vehicle.system_user && (
+          <Chip
+            label={vehicle.system_user.badge}
+            color="success"
+            variant="outlined"
+            sx={{ 
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              height: 28,
+              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              borderColor: '#4CAF50',
+              color: '#2E7D32'
+            }}
+          />
+        )}
       </Box>
 
       {/* Vehicle Details */}
@@ -1047,16 +1152,26 @@ const VehicleCard = ({ vehicle, onImageClick }) => (
       {/* Owner Details */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-          פרטי בעלים:
+          {vehicle.is_system_user_vehicle ? 'פרטי מתנדב:' : 'פרטי בעלים:'}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <PersonIcon sx={{ fontSize: 16, mr: 1, color: '#7f8c8d' }} />
           <Typography variant="body2">{vehicle.owner_name}</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <LocationIcon sx={{ fontSize: 16, mr: 1, color: '#7f8c8d' }} />
-          <Typography variant="body2">{vehicle.owner_address}</Typography>
-        </Box>
+        {vehicle.is_system_user_vehicle && vehicle.system_user && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <WorkIcon sx={{ fontSize: 16, mr: 1, color: '#7f8c8d' }} />
+            <Typography variant="body2">
+              <strong>תפקיד:</strong> {vehicle.system_user.position} ({vehicle.system_user.role})
+            </Typography>
+          </Box>
+        )}
+        {vehicle.owner_address && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <LocationIcon sx={{ fontSize: 16, mr: 1, color: '#7f8c8d' }} />
+            <Typography variant="body2">{vehicle.owner_address}</Typography>
+          </Box>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <PhoneIcon sx={{ fontSize: 16, mr: 1, color: '#7f8c8d' }} />
           <Typography variant="body2">{vehicle.owner_phone}</Typography>
@@ -1091,7 +1206,7 @@ const VehicleCard = ({ vehicle, onImageClick }) => (
         {vehicle.owner_image_url && (
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-              תמונת בעלים
+              {vehicle.is_system_user_vehicle ? 'תמונת מתנדב' : 'תמונת בעלים'}
             </Typography>
             <Avatar
               src={vehicle.owner_image_url}
@@ -1099,38 +1214,59 @@ const VehicleCard = ({ vehicle, onImageClick }) => (
                 width: 60, 
                 height: 60,
                 cursor: 'pointer',
+                border: vehicle.is_system_user_vehicle ? '2px solid #4CAF50' : 'none',
                 '&:hover': { 
                   opacity: 0.8,
                   transform: 'scale(1.05)' 
                 },
                 transition: 'all 0.2s'
               }}
-              onClick={() => onImageClick(vehicle.owner_image_url, `תמונת בעלים - ${vehicle.owner_name}`)}
+              onClick={() => onImageClick(vehicle.owner_image_url, 
+                `${vehicle.is_system_user_vehicle ? 'תמונת מתנדב' : 'תמונת בעלים'} - ${vehicle.owner_name}`)}
             >
-              <PersonIcon />
+              {vehicle.is_system_user_vehicle ? <WorkIcon /> : <PersonIcon />}
             </Avatar>
           </Box>
         )}
       </Box>
     </CardContent>
   </Card>
-);
+  );
+};
 
 // Admin Vehicle Card Component
 const AdminVehicleCard = ({ vehicle, onEdit, onDelete }) => (
   <Card sx={{ 
     borderRadius: 2, 
-    border: '1px solid #e0e6ed',
-    position: 'relative'
+    border: vehicle.is_system_user_vehicle ? '2px solid #4CAF50' : '1px solid #e0e6ed',
+    position: 'relative',
+    backgroundColor: vehicle.is_system_user_vehicle ? 'rgba(76, 175, 80, 0.02)' : 'white'
   }}>
     <CardContent sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-        <Chip
-          label={vehicle.license_plate}
-          size="small"
-          color="primary"
-          sx={{ fontWeight: 600 }}
-        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Chip
+            label={vehicle.license_plate}
+            size="small"
+            color="primary"
+            sx={{ fontWeight: 600 }}
+          />
+          {vehicle.is_system_user_vehicle && vehicle.system_user && (
+            <Chip
+              label={vehicle.system_user.badge}
+              size="small"
+              color="success"
+              variant="outlined"
+              sx={{ 
+                fontSize: '0.7rem',
+                height: 22,
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                borderColor: '#4CAF50',
+                color: '#2E7D32'
+              }}
+            />
+          )}
+        </Box>
         <Box>
           <IconButton size="small" onClick={onEdit} sx={{ mr: 1 }}>
             <EditIcon />
@@ -1144,9 +1280,14 @@ const AdminVehicleCard = ({ vehicle, onEdit, onDelete }) => (
       <Typography variant="body2" sx={{ mb: 1 }}>
         {vehicle.vehicle_type} - {vehicle.vehicle_model}
       </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {vehicle.owner_name}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        {vehicle.is_system_user_vehicle ? '🎖️ ' : ''}{vehicle.owner_name}
       </Typography>
+      {vehicle.is_system_user_vehicle && vehicle.system_user && (
+        <Typography variant="caption" color="success.main">
+          {vehicle.system_user.position} • {vehicle.system_user.role}
+        </Typography>
+      )}
     </CardContent>
   </Card>
 );
@@ -1162,7 +1303,12 @@ const VehicleFormDialog = ({
   vehicleImagePreview,
   ownerImagePreview,
   loading,
-  onSubmit
+  onSubmit,
+  handleVehicleTypeChange,
+  handleLicensePlateChange,
+  handleVehicleModelChange,
+  handleOwnerNameChange,
+  handleOwnerPhoneChange
 }) => (
   <Dialog 
     open={open} 
@@ -1182,8 +1328,9 @@ const VehicleFormDialog = ({
             fullWidth
             label="מספר רישוי *"
             value={form.licensePlate}
-            onChange={(e) => onFormChange('licensePlate', e.target.value)}
-            placeholder="12-345-67"
+            onChange={(e) => handleLicensePlateChange(e.target.value)}
+            placeholder="123-45-678"
+            helperText="רק מספרים ומקפים מותרים"
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -1191,8 +1338,9 @@ const VehicleFormDialog = ({
             fullWidth
             label="סוג רכב *"
             value={form.vehicleType}
-            onChange={(e) => onFormChange('vehicleType', e.target.value)}
+            onChange={(e) => handleVehicleTypeChange(e.target.value)}
             placeholder="סדאן, רכב שטח, האצ'בק..."
+            helperText="אותיות, מספרים, רווחים ומקפים בלבד"
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -1200,18 +1348,30 @@ const VehicleFormDialog = ({
             fullWidth
             label="דגם רכב *"
             value={form.vehicleModel}
-            onChange={(e) => onFormChange('vehicleModel', e.target.value)}
+            onChange={(e) => handleVehicleModelChange(e.target.value)}
             placeholder="טויוטה קורולה, פורד פוקוס..."
+            helperText="אותיות, מספרים, רווחים, מקפים וגרש מותרים"
           />
         </Grid>
         <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="צבע רכב *"
-            value={form.vehicleColor}
-            onChange={(e) => onFormChange('vehicleColor', e.target.value)}
-            placeholder="לבן, שחור, כחול..."
-          />
+          <FormControl fullWidth required>
+            <InputLabel>צבע רכב *</InputLabel>
+            <Select
+              value={form.vehicleColor}
+              onChange={(e) => onFormChange('vehicleColor', e.target.value)}
+              label="צבע רכב *"
+              displayEmpty
+            >
+              <MenuItem value="">
+                <em>בחר צבע רכב</em>
+              </MenuItem>
+              {carColors.map((color) => (
+                <MenuItem key={color} value={color}>
+                  {color}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Grid>
 
         {/* Owner Info */}
@@ -1224,8 +1384,9 @@ const VehicleFormDialog = ({
             fullWidth
             label="שם בעלים *"
             value={form.ownerName}
-            onChange={(e) => onFormChange('ownerName', e.target.value)}
+            onChange={(e) => handleOwnerNameChange(e.target.value)}
             placeholder="שם מלא"
+            helperText="רק אותיות ורווחים"
           />
         </Grid>
         <Grid item xs={12} md={6}>
@@ -1233,8 +1394,9 @@ const VehicleFormDialog = ({
             fullWidth
             label="מספר טלפון *"
             value={form.ownerPhone}
-            onChange={(e) => onFormChange('ownerPhone', e.target.value)}
+            onChange={(e) => handleOwnerPhoneChange(e.target.value)}
             placeholder="050-1234567"
+            helperText="רק מספרים ומקפים"
           />
         </Grid>
         <Grid item xs={12}>

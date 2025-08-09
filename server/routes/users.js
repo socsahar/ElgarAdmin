@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { supabaseAdmin } = require('../config/supabase');
 const { authMiddleware: auth } = require('../middleware/auth');
+const { createUserVehicle, updateUserVehicle } = require('../utils/vehicleHelpers');
 const bcrypt = require('bcrypt');
 
 // Middleware to check admin privileges
@@ -183,7 +184,26 @@ router.post('/', auth, requireSuperRole, async (req, res) => {
       });
     }
 
-    res.status(201).json(newUser);
+    // After user is created successfully, create vehicle if user has a car
+    let vehicleData = null;
+    if (newUser.has_car) {
+      try {
+        vehicleData = await createUserVehicle(userData, newUser.id);
+        console.log(`✅ Vehicle created for user ${newUser.full_name}`);
+      } catch (vehicleError) {
+        console.error('Error creating vehicle for user:', vehicleError);
+        // Note: We don't fail the user creation if vehicle creation fails
+        // This ensures user creation is robust
+      }
+    }
+
+    // Return user data with vehicle information if created
+    const response = {
+      ...newUser,
+      vehicle: vehicleData
+    };
+
+    res.status(201).json(response);
   } catch (error) {
     console.error('Create user error:', error);
     res.status(500).json({ 
@@ -292,7 +312,25 @@ router.put('/:id', auth, requireSuperRole, async (req, res) => {
       });
     }
 
-    res.json(updatedUser);
+    // Update associated vehicle if user has car information
+    let vehicleData = null;
+    try {
+      vehicleData = await updateUserVehicle(updateData, id);
+      if (vehicleData) {
+        console.log(`✅ Vehicle updated for user ${updatedUser.full_name}`);
+      }
+    } catch (vehicleError) {
+      console.error('Error updating vehicle for user:', vehicleError);
+      // Note: We don't fail the user update if vehicle update fails
+    }
+
+    // Return user data with vehicle information if updated
+    const response = {
+      ...updatedUser,
+      vehicle: vehicleData
+    };
+
+    res.json(response);
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ 

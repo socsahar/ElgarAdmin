@@ -73,7 +73,7 @@ router.get('/search', authMiddleware, async (req, res) => {
 
     const searchTerm = query.trim();
     
-    // Search vehicles by license plate, owner name, or owner phone
+    // Search vehicles using the current flat schema with enhanced user matching
     const { data: vehicles, error: searchError } = await supabaseAdmin
       .from('vehicles')
       .select(`
@@ -88,9 +88,10 @@ router.get('/search', authMiddleware, async (req, res) => {
         vehicle_image_url,
         owner_image_url,
         created_at,
-        updated_at
+        updated_at,
+        user_id
       `)
-      .or(`license_plate.ilike.%${searchTerm}%,owner_name.ilike.%${searchTerm}%,owner_phone.ilike.%${searchTerm}%`)
+      .or(`license_plate.ilike.%${searchTerm}%,vehicle_type.ilike.%${searchTerm}%,vehicle_model.ilike.%${searchTerm}%,vehicle_color.ilike.%${searchTerm}%,owner_name.ilike.%${searchTerm}%,owner_phone.ilike.%${searchTerm}%`)
       .order('updated_at', { ascending: false })
       .limit(50);
 
@@ -102,10 +103,74 @@ router.get('/search', authMiddleware, async (req, res) => {
       });
     }
 
+    // Get all users for matching
+    const { data: allUsers, error: usersError } = await supabaseAdmin
+      .from('users')
+      .select('id, full_name, phone_number, position, role, photo_url, license_plate, has_car')
+      .eq('has_car', true);
+
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+    }
+
+    console.log(`🔍 Search processing: found ${vehicles?.length || 0} vehicles and ${allUsers?.length || 0} users`);
+
+    // Process vehicle data to include enhanced information
+    const processedVehicles = (vehicles || []).map(vehicle => {
+      // Try to find matching user by license plate or name
+      let matchingUser = null;
+      if (allUsers) {
+        matchingUser = allUsers.find(user => 
+          user.license_plate === vehicle.license_plate || 
+          user.full_name.trim() === vehicle.owner_name.trim()
+        );
+      }
+      
+      const isSystemUserVehicle = !!matchingUser;
+      const ownerPhoto = isSystemUserVehicle ? matchingUser.photo_url : vehicle.owner_image_url;
+      
+      if (vehicle.license_plate === '856-62-702') {
+        console.log(`🎯 Processing target vehicle ${vehicle.license_plate}:`);
+        console.log('   - owner_name:', vehicle.owner_name);
+        console.log('   - matchingUser:', matchingUser ? matchingUser.full_name : 'Not found');
+        console.log('   - isSystemUserVehicle:', isSystemUserVehicle);
+      }
+      
+      return {
+        ...vehicle,
+        // Enhanced owner information (prefer system user data when available)
+        owner_name: isSystemUserVehicle ? matchingUser.full_name : vehicle.owner_name,
+        owner_phone: isSystemUserVehicle ? matchingUser.phone_number : vehicle.owner_phone,
+        owner_image_url: ownerPhoto,
+        // System user indicators
+        is_system_user_vehicle: isSystemUserVehicle,
+        system_user: isSystemUserVehicle ? {
+          name: matchingUser.full_name,
+          position: matchingUser.position,
+          role: matchingUser.role,
+          photo_url: matchingUser.photo_url,
+          badge: 'מתנדב יחידת אלג"ר'
+        } : null,
+        // Ensure compatibility with frontend expectations
+        vehicle_type: vehicle.vehicle_type,
+        vehicle_model: vehicle.vehicle_model,
+        vehicle_color: vehicle.vehicle_color,
+        vehicle_image_url: vehicle.vehicle_image_url
+      };
+    });
+
+    console.log(`🚀 Sending ${processedVehicles.length} processed vehicles to client`);
+    const targetVehicle = processedVehicles.find(v => v.license_plate === '856-62-702');
+    if (targetVehicle) {
+      console.log('🎯 Target vehicle being sent:');
+      console.log('   - is_system_user_vehicle:', targetVehicle.is_system_user_vehicle);
+      console.log('   - system_user:', targetVehicle.system_user ? 'Present' : 'Missing');
+    }
+
     res.json({
       success: true,
-      data: vehicles || [],
-      message: `נמצאו ${vehicles?.length || 0} רכבים`
+      data: processedVehicles,
+      message: `נמצאו ${processedVehicles.length} רכבים`
     });
 
   } catch (error) {
@@ -133,7 +198,7 @@ router.get('/', authMiddleware, async (req, res) => {
       });
     }
     
-    // Fetch all vehicles for management
+    // Fetch all vehicles for management using current flat schema
     const { data: vehicles, error: fetchError } = await supabaseAdmin
       .from('vehicles')
       .select(`
@@ -148,7 +213,8 @@ router.get('/', authMiddleware, async (req, res) => {
         vehicle_image_url,
         owner_image_url,
         created_at,
-        updated_at
+        updated_at,
+        user_id
       `)
       .order('updated_at', { ascending: false });
 
@@ -160,10 +226,57 @@ router.get('/', authMiddleware, async (req, res) => {
       });
     }
 
+    // Get all users for matching
+    const { data: allUsers, error: usersError } = await supabaseAdmin
+      .from('users')
+      .select('id, full_name, phone_number, position, role, photo_url, license_plate, has_car')
+      .eq('has_car', true);
+
+    if (usersError) {
+      console.error('Error fetching users for admin view:', usersError);
+    }
+
+    // Process vehicle data to include enhanced information
+    const processedVehicles = (vehicles || []).map(vehicle => {
+      // Try to find matching user by license plate or name
+      let matchingUser = null;
+      if (allUsers) {
+        matchingUser = allUsers.find(user => 
+          user.license_plate === vehicle.license_plate || 
+          user.full_name.trim() === vehicle.owner_name.trim()
+        );
+      }
+      
+      const isSystemUserVehicle = !!matchingUser;
+      const ownerPhoto = isSystemUserVehicle ? matchingUser.photo_url : vehicle.owner_image_url;
+      
+      return {
+        ...vehicle,
+        // Enhanced owner information (prefer system user data when available)
+        owner_name: isSystemUserVehicle ? matchingUser.full_name : vehicle.owner_name,
+        owner_phone: isSystemUserVehicle ? matchingUser.phone_number : vehicle.owner_phone,
+        owner_image_url: ownerPhoto,
+        // System user indicators
+        is_system_user_vehicle: isSystemUserVehicle,
+        system_user: isSystemUserVehicle ? {
+          name: matchingUser.full_name,
+          position: matchingUser.position,
+          role: matchingUser.role,
+          photo_url: matchingUser.photo_url,
+          badge: 'מתנדב יחידת אלג"ר'
+        } : null,
+        // Ensure compatibility with frontend expectations
+        vehicle_type: vehicle.vehicle_type,
+        vehicle_model: vehicle.vehicle_model,
+        vehicle_color: vehicle.vehicle_color,
+        vehicle_image_url: vehicle.vehicle_image_url
+      };
+    });
+
     res.json({
       success: true,
-      data: vehicles || [],
-      message: `נטענו ${vehicles?.length || 0} רכבים`
+      data: processedVehicles,
+      message: `נטענו ${processedVehicles.length} רכבים`
     });
 
   } catch (error) {
