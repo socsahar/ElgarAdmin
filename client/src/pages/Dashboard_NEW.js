@@ -43,6 +43,14 @@ import api from '../utils/api';
 function Dashboard() {
   const { user } = useAuth();
   const { socket, connected, onlineUsers, requestOnlineUsers } = useSocket();
+  
+  // Check if current user can view ID numbers
+  const canViewIdNumbers = () => {
+    if (!user) return false;
+    const authorizedRoles = ['מפתח', 'אדמין', 'פיקוד יחידה', 'מפקד משל"ט'];
+    return authorizedRoles.includes(user.role);
+  };
+  
   const [stats, setStats] = useState({
     pendingActionReports: 0,
     activeCases: 0,
@@ -1330,17 +1338,20 @@ function Dashboard() {
                     variant="outlined"
                   />
                 </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    id="user-id-number"
-                    name="idNumber"
-                    label="תעודת זהות"
-                    value={selectedUser.id_number || 'לא צוין'}
-                    fullWidth
-                    InputProps={{ readOnly: true }}
-                    variant="outlined"
-                  />
-                </Grid>
+                {/* Hide ID number from unauthorized users */}
+                {canViewIdNumbers() && (
+                  <Grid item xs={6}>
+                    <TextField
+                      id="user-id-number"
+                      name="idNumber"
+                      label="תעודת זהות"
+                      value={selectedUser.id_number || 'לא צוין'}
+                      fullWidth
+                      InputProps={{ readOnly: true }}
+                      variant="outlined"
+                    />
+                  </Grid>
+                )}
                 <Grid item xs={6}>
                   <TextField
                     id="user-role"

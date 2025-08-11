@@ -1149,20 +1149,21 @@ const Users = () => {
                         variant="outlined"
                       />
                     </Grid>
-                    {/* Hide ID number from unauthorized users */}
-                    {canViewIdNumbers() && (
-                      <Grid item xs={6}>
-                        <TextField
-                          label="תעודת זהות"
-                          value={selectedUserDetails.id_number || 'לא צוין'}
-                          fullWidth
-                          InputProps={{ readOnly: true }}
-                          variant="outlined"
-                        />
-                      </Grid>
-                    )}
                   </>
                 ) : null}
+                
+                {/* ID number field - independent check for authorized roles only */}
+                {canViewIdNumbers() && (
+                  <Grid item xs={6}>
+                    <TextField
+                      label="תעודת זהות"
+                      value={selectedUserDetails.id_number || 'לא צוין'}
+                      fullWidth
+                      InputProps={{ readOnly: true }}
+                      variant="outlined"
+                    />
+                  </Grid>
+                )}
               </Grid>
 
               {/* Car Information */}
