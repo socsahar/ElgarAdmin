@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Elgar Mobile</string>
+    <string name="app_description">Elgar car theft tracking system</string>
+    
+    <!-- Hebrew strings -->
+    <string name="login_title">התחברות</string>
+    <string name="username">שם משתמש</string>
+    <string name="password">סיסמה</string>
+    <string name="login_button">התחבר</string>
+    <string name="dashboard">לוח בקרה</string>
+    <string name="events">אירועים</string>
+    <string name="action_reports">דוחות פעולה</string>
+    <string name="profile">פרופיל</string>
+    <string name="settings">הגדרות</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_name">התראות אלג״ר</string>
+    <string name="notification_channel_description">התראות מערכת מעקב גניבות רכב אלג״ר</string>
+    
+    <!-- Permissions -->
+    <string name="permission_camera_title">הרשאת מצלמה</string>
+    <string name="permission_camera_message">האפליקציה זקוקה לגישה למצלמה כדי לצלם תמונות</string>
+    <string name="permission_location_title">הרשאת מיקום</string>
+    <string name="permission_location_message">האפליקציה זקוקה לגישה למיקום כדי לעקוב אחר מתנדבים</string>
+    
+    <!-- Common -->
+    <string name="ok">אישור</string>
+    <string name="cancel">ביטול</string>
+    <string name="yes">כן</string>
+    <string name="no">לא</string>
+    <string name="save">שמור</string>
+    <string name="loading">טוען...</string>
+    <string name="error">שגיאה</string>
+    <string name="success">הצלחה</string>
+    <string name="retry">נסה שוב</string>
+</resources>

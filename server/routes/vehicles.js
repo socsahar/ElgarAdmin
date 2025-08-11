@@ -26,6 +26,88 @@ const checkVehicleManagePermission = async (userId) => {
   }
 };
 
+// Helper function to normalize license plate for search
+function normalizeLicensePlate(plate) {
+  if (!plate) return [];
+  
+  console.log(`🔍 Normalizing license plate: "${plate}"`);
+  
+  // Remove all non-digit characters and normalize
+  const digitsOnly = plate.replace(/\D/g, '');
+  console.log(`🔢 Digits only: "${digitsOnly}" (length: ${digitsOnly.length})`);
+  
+  // Always include the original search term
+  const searchFormats = [plate];
+  
+  // For any digit input, create appropriate formats
+  if (digitsOnly.length >= 2) {
+    // Always add the digits-only version
+    searchFormats.push(digitsOnly);
+    
+    if (digitsOnly.length === 8) {
+      // Full license plate - create both formats
+      const format1 = `${digitsOnly.substring(0, 3)}-${digitsOnly.substring(3, 5)}-${digitsOnly.substring(5, 8)}`; // XXX-XX-XXX
+      const format2 = `${digitsOnly.substring(0, 2)}-${digitsOnly.substring(2, 5)}-${digitsOnly.substring(5, 8)}`; // XX-XXX-XX
+      searchFormats.push(format1, format2);
+      console.log(`🚗 Full formats: "${format1}" and "${format2}"`);
+    } else if (digitsOnly.length === 7) {
+      // 7 digits - likely XX-XXX-XX format
+      const format1 = `${digitsOnly.substring(0, 2)}-${digitsOnly.substring(2, 5)}-${digitsOnly.substring(5, 7)}`; // XX-XXX-XX
+      searchFormats.push(format1);
+      console.log(`🚗 7-digit format: "${format1}"`);
+    } else if (digitsOnly.length >= 5) {
+      // 5+ digits - could be start of either format
+      // Try as XX-XXX pattern (54-180)
+      const format1 = `${digitsOnly.substring(0, 2)}-${digitsOnly.substring(2, 5)}`; // XX-XXX
+      searchFormats.push(format1);
+      console.log(`🚗 ${digitsOnly.length}-digit XX-XXX pattern: "${format1}"`);
+      
+      // Try as XXX-XX pattern (541-80)
+      if (digitsOnly.length >= 5) {
+        const format2 = `${digitsOnly.substring(0, 3)}-${digitsOnly.substring(3, 5)}`; // XXX-XX
+        searchFormats.push(format2);
+        console.log(`🚗 ${digitsOnly.length}-digit XXX-XX pattern: "${format2}"`);
+      }
+    } else if (digitsOnly.length >= 3) {
+      // 3-4 digits - could be start of XXX-XX pattern
+      const format1 = `${digitsOnly.substring(0, 2)}-${digitsOnly.substring(2)}`; // XX-X or XX-XX
+      searchFormats.push(format1);
+      console.log(`🚗 ${digitsOnly.length}-digit XX-X pattern: "${format1}"`);
+      
+      if (digitsOnly.length >= 3) {
+        const format2 = `${digitsOnly.substring(0, 3)}-${digitsOnly.substring(3) || ''}`; // XXX or XXX-X
+        if (digitsOnly.substring(3)) {
+          searchFormats.push(format2);
+          console.log(`🚗 ${digitsOnly.length}-digit XXX-X pattern: "${format2}"`);
+        }
+      }
+    } else if (digitsOnly.length === 2) {
+      // 2 digits - could be start of any format
+      console.log(`🚗 2-digit search: will match any license plate containing "${digitsOnly}"`);
+    }
+  }
+  
+  // Remove duplicates and empty strings
+  const uniqueFormats = [...new Set(searchFormats)].filter(f => f && f.trim());
+  console.log(`🎯 Final search formats: ${uniqueFormats.join(', ')}`);
+  return uniqueFormats;
+}
+
+// Helper function to create license plate search conditions
+function createLicensePlateSearchConditions(searchTerm) {
+  const normalizedFormats = normalizeLicensePlate(searchTerm);
+  
+  // Create search conditions for each possible format
+  const licenseConditions = normalizedFormats.map(format => 
+    `license_plate.ilike.%${format}%`
+  ).join(',');
+  
+  // Always wrap in OR condition for multiple formats
+  const finalCondition = normalizedFormats.length > 1 ? `or(${licenseConditions})` : licenseConditions;
+  console.log(`🔍 License search conditions: ${finalCondition}`);
+  return finalCondition;
+}
+
 // Helper function to check vehicle search permissions (all users can search)
 const checkVehicleSearchPermission = async (userId) => {
   try {
@@ -74,6 +156,10 @@ router.get('/search', authMiddleware, async (req, res) => {
     const searchTerm = query.trim();
     
     // Search vehicles using the current flat schema with enhanced user matching
+    // Enhanced search with license plate format flexibility
+    const licenseSearchConditions = createLicensePlateSearchConditions(searchTerm);
+    const otherSearchConditions = `vehicle_type.ilike.%${searchTerm}%,vehicle_model.ilike.%${searchTerm}%,vehicle_color.ilike.%${searchTerm}%,owner_name.ilike.%${searchTerm}%,owner_phone.ilike.%${searchTerm}%`;
+    
     const { data: vehicles, error: searchError } = await supabaseAdmin
       .from('vehicles')
       .select(`
@@ -91,7 +177,7 @@ router.get('/search', authMiddleware, async (req, res) => {
         updated_at,
         user_id
       `)
-      .or(`license_plate.ilike.%${searchTerm}%,vehicle_type.ilike.%${searchTerm}%,vehicle_model.ilike.%${searchTerm}%,vehicle_color.ilike.%${searchTerm}%,owner_name.ilike.%${searchTerm}%,owner_phone.ilike.%${searchTerm}%`)
+      .or(`${licenseSearchConditions},${otherSearchConditions}`)
       .order('updated_at', { ascending: false })
       .limit(50);
 

@@ -43,7 +43,8 @@ import {
   Summarize as SummarizeIcon,
   LockReset as LockResetIcon,
   Security as SecurityIcon,
-  PowerOff as PowerOffIcon
+  PowerOff as PowerOffIcon,
+  DirectionsCar as CarIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
@@ -79,6 +80,7 @@ const Users = () => {
   const [selectedUserDetails, setSelectedUserDetails] = useState(null);
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState(null);
+  const [creatingVehicles, setCreatingVehicles] = useState(false);
   const { isSuperRole, user: currentUser } = useAuth();
   const { canModifyPrivileges, canManageUser, canManageRole, hasPermission, isManagementRole } = usePermissions();
 
@@ -424,6 +426,33 @@ const Users = () => {
     setTimeout(() => setSuccess(''), 5000);
   };
 
+  const handleCreateVehiclesForUsers = async () => {
+    if (!window.confirm('האם אתה בטוח שברצונך לעדכן רכבים עבור כל המשתמשים? פעולה זו תיצור רכבים חדשים עבור משתמשים חסרים ותעדכן רכבים קיימים.')) {
+      return;
+    }
+
+    setCreatingVehicles(true);
+    try {
+      const response = await api.post('/api/admin/create-vehicles-for-users');
+      if (response.data.success) {
+        setSuccess(response.data.message || `עודכנו רכבים עבור ${response.data.count} משתמשים בהצלחה`);
+        // Refresh users to show updated data
+        fetchUsers();
+      } else {
+        setError(response.data.message || 'שגיאה בעדכון רכבים');
+      }
+    } catch (error) {
+      console.error('Error creating/updating vehicles for users:', error);
+      setError('שגיאה בעדכון רכבים למשתמשים');
+    } finally {
+      setCreatingVehicles(false);
+      setTimeout(() => {
+        setSuccess('');
+        setError('');
+      }, 5000);
+    }
+  };
+
   const openCreateDialog = () => {
     resetForm();
     setEditingUser(null);
@@ -574,6 +603,17 @@ const Users = () => {
             >
               רענן
             </Button>
+            {hasPermission('access_users_crud') && isManagementRole() && (
+              <Button
+                variant="contained"
+                color="info"
+                startIcon={<CarIcon />}
+                onClick={handleCreateVehiclesForUsers}
+                disabled={creatingVehicles}
+              >
+                {creatingVehicles ? 'מעדכן רכבים...' : 'עדכן רכבים'}
+              </Button>
+            )}
           </Box>
         </Grid>
         <Grid item xs={12} md={6}>

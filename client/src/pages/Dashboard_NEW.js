@@ -62,6 +62,7 @@ function Dashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userStatsLoading, setUserStatsLoading] = useState(false);
   const [userStatsCache, setUserStatsCache] = useState(new Map()); // Cache for user statistics
+  const [showAllOnlineUsers, setShowAllOnlineUsers] = useState(false); // State for showing all online users
 
   useEffect(() => {
     loadDashboardData();
@@ -909,79 +910,106 @@ function Dashboard() {
                       {console.log('🖥️ Dashboard rendering online users:', onlineUsers)}
                       
                       <List dense sx={{ p: 0 }}>
-                        {onlineUsers.slice(0, 8).map((onlineUser, index) => (
-                          <React.Fragment key={onlineUser.id}>
-                            <ListItem 
-                              sx={{ 
-                                px: 0, 
-                                py: 1,
-                                cursor: 'pointer',
+                        {/* Determine how many users to show */}
+                        {(() => {
+                          const usersToShow = showAllOnlineUsers ? onlineUsers : onlineUsers.slice(0, 8);
+                          return usersToShow.map((onlineUser, index) => (
+                            <React.Fragment key={onlineUser.id}>
+                              <ListItem 
+                                sx={{ 
+                                  px: 0, 
+                                  py: 1,
+                                  cursor: 'pointer',
+                                borderRadius: 2,
+                                '&:hover': {
+                                  backgroundColor: '#f8f9fa',
+                                  transition: 'all 0.2s ease'
+                                }
+                              }}
+                              onClick={() => handleUserClick(onlineUser)}
+                            >
+                              <ListItemIcon>
+                                <Box sx={{ position: 'relative' }}>
+                                  <UserAvatar 
+                                    user={onlineUser}
+                                    size={40}
+                                    roleColor="#3498db"
+                                    clickable={false}
+                                  />
+                                  <Box sx={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    right: 0,
+                                    width: 12,
+                                    height: 12,
+                                    backgroundColor: '#27ae60',
+                                    borderRadius: '50%',
+                                    border: '2px solid white',
+                                    animation: 'pulse 2s infinite'
+                                  }} />
+                                </Box>
+                              </ListItemIcon>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#2c3e50' }}>
+                                  {onlineUser.full_name || onlineUser.username || onlineUser.name || 'Unknown User'}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                  <Chip
+                                    label={onlineUser.role || 'User'} 
+                                    size="small" 
+                                    sx={{
+                                      fontSize: '0.7rem',
+                                      height: 20,
+                                      backgroundColor: '#e8f4fd',
+                                      color: '#3498db'
+                                    }}
+                                  />
+                                  <Typography variant="caption" color="text.secondary">
+                                    מחובר {onlineUser.connectedAt ? new Date(onlineUser.connectedAt).toLocaleTimeString('he-IL', { 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    }) : 'עכשיו'}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </ListItem>
+                            {index < usersToShow.length - 1 && (
+                              <Divider sx={{ my: 1 }} />
+                            )}
+                          </React.Fragment>
+                        ));
+                        })()}
+                      </List>
+                      
+                      {/* Show More / Show Less Button */}
+                      {onlineUsers.length > 8 && (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => setShowAllOnlineUsers(!showAllOnlineUsers)}
+                            sx={{
+                              borderColor: '#3498db',
+                              color: '#3498db',
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              px: 3,
+                              py: 1,
                               borderRadius: 2,
                               '&:hover': {
-                                backgroundColor: '#f8f9fa',
-                                transition: 'all 0.2s ease'
+                                backgroundColor: '#e8f4fd',
+                                borderColor: '#2980b9',
+                                color: '#2980b9'
                               }
                             }}
-                            onClick={() => handleUserClick(onlineUser)}
                           >
-                            <ListItemIcon>
-                              <Box sx={{ position: 'relative' }}>
-                                <UserAvatar 
-                                  user={onlineUser}
-                                  size={40}
-                                  roleColor="#3498db"
-                                  clickable={false}
-                                />
-                                <Box sx={{
-                                  position: 'absolute',
-                                  bottom: 0,
-                                  right: 0,
-                                  width: 12,
-                                  height: 12,
-                                  backgroundColor: '#27ae60',
-                                  borderRadius: '50%',
-                                  border: '2px solid white',
-                                  animation: 'pulse 2s infinite'
-                                }} />
-                              </Box>
-                            </ListItemIcon>
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: '#2c3e50' }}>
-                                {onlineUser.full_name || onlineUser.username || onlineUser.name || 'Unknown User'}
-                              </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                                <Chip
-                                  label={onlineUser.role || 'User'} 
-                                  size="small" 
-                                  sx={{
-                                    fontSize: '0.7rem',
-                                    height: 20,
-                                    backgroundColor: '#e8f4fd',
-                                    color: '#3498db'
-                                  }}
-                                />
-                                <Typography variant="caption" color="text.secondary">
-                                  מחובר {onlineUser.connectedAt ? new Date(onlineUser.connectedAt).toLocaleTimeString('he-IL', { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  }) : 'עכשיו'}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </ListItem>
-                          {index < onlineUsers.slice(0, 8).length - 1 && (
-                            <Divider sx={{ my: 1 }} />
-                          )}
-                        </React.Fragment>
-                      ))}
-                      {onlineUsers.length > 8 && (
-                        <ListItem sx={{ px: 0, py: 1, justifyContent: 'center' }}>
-                          <Typography variant="caption" color="text.secondary">
-                            +{onlineUsers.length - 8} מתנדבים נוספים מחוברים
-                          </Typography>
-                        </ListItem>
+                            {showAllOnlineUsers 
+                              ? `הצג פחות (${Math.min(8, onlineUsers.length)})` 
+                              : `הצג עוד (+${onlineUsers.length - 8})`
+                            }
+                          </Button>
+                        </Box>
                       )}
-                    </List>
                     </>
                   )}
                 </CardContent>

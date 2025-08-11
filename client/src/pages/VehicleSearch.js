@@ -194,9 +194,12 @@ const VehicleSearch = () => {
     
     setAdminLoading(true);
     try {
-      const response = await api.get('/api/vehicles');
+      // Add cache-busting parameter
+      const response = await api.get(`/api/vehicles?_t=${Date.now()}`);
+      console.log('🔄 Loading all vehicles, response:', response.data);
       if (response.data.success) {
         setAllVehicles(Array.isArray(response.data.data) ? response.data.data : []);
+        console.log('✅ All vehicles loaded:', response.data.data.length);
       } else {
         setAllVehicles([]);
       }
@@ -384,7 +387,7 @@ const VehicleSearch = () => {
     setHasSearched(true);
     
     try {
-      const response = await api.get(`/api/vehicles/search?query=${encodeURIComponent(searchTerm.trim())}`);
+      const response = await api.get(`/api/vehicles/search?query=${encodeURIComponent(searchTerm.trim())}&_t=${Date.now()}`);
       
       // Debug logging for real-time search
       console.log('🔍 Real-time API Response:', response.data);
@@ -585,8 +588,31 @@ const VehicleSearch = () => {
 
       if (response.data.success) {
         closeVehicleDialog();
-        loadAllVehicles(); // Refresh the list
+        
+        console.log('🔄 Vehicle updated successfully, refreshing data...');
+        
+        // Force refresh both admin list and search results
+        await loadAllVehicles(); // Refresh the admin vehicle list
+        console.log('✅ Admin vehicles refreshed');
+        
+        // Always refresh search results to ensure consistency
+        if (licensePlate.trim() || ownerName.trim()) {
+          console.log('🔍 Refreshing search results...');
+          await handleSearch(); // Refresh search results if there are search terms
+          console.log('✅ Search results refreshed');
+        } else {
+          // If no search terms, clear search results to show all vehicles
+          setSearchResults([]);
+          console.log('🔄 Search results cleared');
+        }
+        
         setError(''); // Clear any previous errors
+        
+        // Force a re-render by updating a state that doesn't affect display
+        setFormLoading(false);
+        setTimeout(() => setFormLoading(false), 100);
+        
+        console.log('🎉 Vehicle update refresh complete');
       }
     } catch (error) {
       console.error('Error saving vehicle:', error);
@@ -604,7 +630,12 @@ const VehicleSearch = () => {
     try {
       const response = await api.delete(`/api/vehicles/${vehicleId}`);
       if (response.data.success) {
-        loadAllVehicles(); // Refresh the list
+        loadAllVehicles(); // Refresh the admin vehicle list
+        
+        // Also refresh search results if we're currently showing search results
+        if (searchResults.length > 0 || licensePlate.trim() || ownerName.trim()) {
+          handleSearch(); // Refresh search results
+        }
       }
     } catch (error) {
       console.error('Error deleting vehicle:', error);

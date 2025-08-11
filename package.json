@@ -13,7 +13,16 @@
     "postinstall": "cd client && npm install && cd ../server && npm install",
     "build-client": "cd client && npm run build"
   },
-  "keywords": ["car-theft", "tracking", "hebrew", "rtl", "admin", "panel", "elgar", "management"],
+  "keywords": [
+    "car-theft",
+    "tracking",
+    "hebrew",
+    "rtl",
+    "admin",
+    "panel",
+    "elgar",
+    "management"
+  ],
   "author": "Sahar Malul",
   "license": "MIT",
   "engines": {
@@ -21,6 +30,7 @@
     "npm": ">=8.0.0"
   },
   "devDependencies": {
+    "@react-native-community/cli": "^19.1.1",
     "concurrently": "^8.2.2"
   }
 }

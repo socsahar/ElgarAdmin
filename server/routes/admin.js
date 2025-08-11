@@ -1209,4 +1209,317 @@ router.delete('/users/:userId', auth, requireSuperRole, async (req, res) => {
   }
 });
 
+// Import vehicle helpers
+const { createUserVehicle, updateUserVehicle } = require('../utils/vehicleHelpers');
+
+/**
+ * @swagger
+ * /api/admin/create-vehicles-for-users:
+ *   post:
+ *     summary: Create and update vehicles for users based on their car information
+ *     tags: [Admin, Vehicles]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Vehicles created/updated successfully
+ */
+router.post('/create-vehicles-for-users', auth, requireAdmin, async (req, res) => {
+  try {
+    console.log('🚀 Starting vehicle creation/update process...');
+    
+    // Step 1: Get all active users with car information
+    console.log('📋 Fetching all active users with car info...');
+    const { data: allUsers, error: usersError } = await supabaseAdmin
+      .from('users')
+      .select('id, username, full_name, phone_number, is_active, has_car, car_type, license_plate, car_color, photo_url')
+      .eq('is_active', true)
+      .eq('has_car', true)
+      .not('license_plate', 'is', null)
+      .not('car_type', 'is', null)
+      .not('car_color', 'is', null);
+
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'שגיאה בשליפת משתמשים: ' + usersError.message 
+      });
+    }
+
+    console.log(`👥 Found ${allUsers?.length || 0} active users with car information`);
+
+    if (!allUsers || allUsers.length === 0) {
+      return res.json({
+        success: true,
+        message: 'לא נמצאו משתמשים פעילים עם פרטי רכב במערכת',
+        count: 0
+      });
+    }
+
+    // Debug: Let's check if these user IDs actually exist
+    console.log('🔍 Verifying user IDs exist in database...');
+    for (let i = 0; i < Math.min(5, allUsers.length); i++) {
+      const user = allUsers[i];
+      const { data: userCheck, error: checkError } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+      
+      console.log(`User ${user.username || user.full_name} (${user.id}): ${userCheck ? 'EXISTS' : 'NOT FOUND'}`);
+      if (checkError) {
+        console.log('Check error:', checkError);
+      }
+    }
+
+    // Step 2: Get all existing vehicles
+    console.log('🚗 Checking for existing vehicles...');
+    
+    const { data: existingVehicles, error: vehiclesError } = await supabaseAdmin
+      .from('vehicles')
+      .select('id, license_plate, user_id, vehicle_color, vehicle_type, owner_name, owner_phone');
+
+    if (vehiclesError) {
+      console.error('Error fetching vehicles:', vehiclesError);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'שגיאה בשליפת רכבים: ' + vehiclesError.message 
+      });
+    }
+
+    console.log(`🚙 Found ${existingVehicles?.length || 0} existing vehicles`);
+
+    // Step 2.5: Clean up orphaned vehicles (vehicles with non-existent user_ids)
+    console.log('🧹 Cleaning up orphaned vehicles...');
+    let cleanedCount = 0;
+    
+    if (existingVehicles && existingVehicles.length > 0) {
+      for (const vehicle of existingVehicles) {
+        if (vehicle.user_id) {
+          // Check if this user_id exists in the users table
+          const { data: userExists } = await supabaseAdmin
+            .from('users')
+            .select('id')
+            .eq('id', vehicle.user_id)
+            .single();
+
+          if (!userExists) {
+            console.log(`🗑️ Deleting orphaned vehicle (ID: ${vehicle.id}, user_id: ${vehicle.user_id})`);
+            
+            const { error: deleteError } = await supabaseAdmin
+              .from('vehicles')
+              .delete()
+              .eq('id', vehicle.id);
+
+            if (!deleteError) {
+              cleanedCount++;
+              // Remove from our existingVehicles array to prevent processing
+              const index = existingVehicles.indexOf(vehicle);
+              if (index > -1) {
+                existingVehicles.splice(index, 1);
+              }
+            } else {
+              console.error(`❌ Error deleting orphaned vehicle ${vehicle.id}:`, deleteError);
+            }
+          }
+        }
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} orphaned vehicles`);
+    }
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    const errors = [];
+
+    // Step 3: Process each user - either create or update their vehicle
+    for (const user of allUsers) {
+      try {
+        console.log(`🔍 Processing user: ${user.username || user.full_name} (ID: ${user.id})`);
+
+        // First, double-check this user actually exists in the database
+        const { data: userExists, error: userCheckError } = await supabaseAdmin
+          .from('users')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+
+        if (userCheckError || !userExists) {
+          console.log(`⚠️ User ${user.username || user.full_name} (${user.id}) doesn't exist in database, skipping`);
+          errors.push({
+            userId: user.id,
+            username: user.username || user.full_name,
+            error: 'User not found in database',
+            action: 'verify'
+          });
+          continue;
+        }
+
+        // Prefer update by user_id, then by license_plate
+        let existingVehicle = existingVehicles?.find(vehicle => vehicle.user_id === user.id);
+        if (!existingVehicle) {
+          existingVehicle = existingVehicles?.find(vehicle => vehicle.license_plate === user.license_plate);
+        }
+
+        if (existingVehicle) {
+          // Update existing vehicle - but ONLY if the user actually exists
+          console.log(`📝 Updating vehicle for ${user.username || user.full_name}`);
+
+          // Critical check: Verify this user actually exists in the database before ANY update
+          const { data: userReallyExists, error: userVerifyError } = await supabaseAdmin
+            .from('users')
+            .select('id')
+            .eq('id', user.id)
+            .single();
+
+          if (userVerifyError || !userReallyExists) {
+            console.log(`❌ SKIPPING UPDATE - User ${user.username || user.full_name} (${user.id}) does not exist in database`);
+            errors.push({
+              userId: user.id,
+              username: user.username || user.full_name,
+              error: 'User does not exist in database - skipped update',
+              action: 'skip_update'
+            });
+            continue; // Skip this user entirely
+          }
+
+          // Prepare update data - avoid user_id issues by not updating it unless absolutely necessary
+          const vehicleUpdateData = {
+            license_plate: user.license_plate,
+            vehicle_type: user.car_type,
+            vehicle_color: user.car_color,
+            owner_name: user.full_name,
+            owner_phone: user.phone_number,
+            owner_image_url: user.photo_url,
+            updated_by_id: req.user.id,
+            updated_at: new Date().toISOString()
+          };
+
+          // Only attempt to update user_id if the vehicle has no user_id OR if we can verify the old user doesn't exist
+          let shouldUpdateUserId = false;
+          if (!existingVehicle.user_id) {
+            // Vehicle has no user_id, safe to try setting it
+            shouldUpdateUserId = true;
+          } else if (existingVehicle.user_id !== user.id) {
+            // Vehicle has different user_id, check if that old user still exists
+            const { data: oldUserExists } = await supabaseAdmin
+              .from('users')
+              .select('id')
+              .eq('id', existingVehicle.user_id)
+              .single();
+
+            if (!oldUserExists) {
+              // Old user doesn't exist, safe to update
+              shouldUpdateUserId = true;
+            }
+          }
+
+          if (shouldUpdateUserId) {
+            vehicleUpdateData.user_id = user.id;
+          }
+
+          const { data: updatedVehicle, error: updateError } = await supabaseAdmin
+            .from('vehicles')
+            .update(vehicleUpdateData)
+            .eq('id', existingVehicle.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            // If user_id update failed and we were trying to update it, retry without user_id
+            if (updateError.code === '23503' && vehicleUpdateData.user_id) {
+              delete vehicleUpdateData.user_id;
+              
+              const { data: retryVehicle, error: retryError } = await supabaseAdmin
+                .from('vehicles')
+                .update(vehicleUpdateData)
+                .eq('id', existingVehicle.id)
+                .select()
+                .single();
+
+              if (retryError) {
+                console.error(`❌ Failed to update vehicle for ${user.username || user.full_name}:`, retryError.message);
+                errors.push({
+                  userId: user.id,
+                  username: user.username || user.full_name,
+                  error: 'Failed to update vehicle: ' + retryError.message,
+                  action: 'update'
+                });
+              } else {
+                updatedCount++;
+                console.log(`✅ Vehicle updated successfully for ${user.username || user.full_name}`);
+              }
+            } else {
+              console.error(`❌ Failed to update vehicle for ${user.username || user.full_name}:`, updateError.message);
+              errors.push({
+                userId: user.id,
+                username: user.username || user.full_name,
+                error: 'Failed to update vehicle: ' + updateError.message,
+                action: 'update'
+              });
+            }
+          } else {
+            updatedCount++;
+            console.log(`✅ Vehicle updated successfully for ${user.username || user.full_name}`);
+          }
+
+        } else {
+          // Create new vehicle
+          console.log(`🆕 Creating new vehicle for ${user.username || user.full_name}`);
+
+          await createUserVehicle(user, user.id);
+          createdCount++;
+          console.log(`✅ Vehicle created successfully for ${user.username || user.full_name}`);
+        }
+
+      } catch (error) {
+        console.error(`❌ Error processing vehicle for user ${user.username || user.full_name}:`, error);
+        errors.push({
+          userId: user.id,
+          username: user.username || user.full_name,
+          error: error.message,
+          action: 'process'
+        });
+      }
+    }
+
+    // Log the mass vehicle creation/update
+    await createLog('info', `עדכון רכבים המוני: עודכנו ${updatedCount} רכבים, נוצרו ${createdCount} רכבים חדשים, נוקו ${cleanedCount} רכבים יתומים מתוך ${allUsers.length} משתמשים`, {
+      action: 'mass_vehicle_update',
+      total_users: allUsers.length,
+      created_count: createdCount,
+      updated_count: updatedCount,
+      cleaned_count: cleanedCount,
+      errors_count: errors.length,
+      created_by: req.user.full_name || req.user.username,
+      errors: errors
+    }, req.user.id);
+
+    const totalProcessed = createdCount + updatedCount;
+    const successMessage = totalProcessed > 0 
+      ? `עודכנו/נוצרו רכבים עבור ${totalProcessed} משתמשים בהצלחה (${updatedCount} עודכנו, ${createdCount} נוצרו${cleanedCount > 0 ? `, ${cleanedCount} נוקו` : ''})${errors.length > 0 ? ` (עם ${errors.length} שגיאות)` : ''}`
+      : 'לא נדרש עדכון רכבים';
+
+    res.json({
+      success: true,
+      message: successMessage,
+      count: totalProcessed,
+      createdCount,
+      updatedCount,
+      totalUsers: allUsers.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error) {
+    console.error('Error in mass vehicle creation/update:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'שגיאת שרת בעדכון רכבים' 
+    });
+  }
+});
+
 module.exports = router;
