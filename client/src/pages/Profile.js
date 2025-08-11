@@ -26,11 +26,20 @@ import {
   CreditCard as IdIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { hasPermission } from '../utils/permissions';
 import UserAvatar from '../components/UserAvatar';
 import api from '../utils/api';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
+
+  // Check if current user can view ID numbers
+  const canViewIdNumbers = () => {
+    if (!user) return false;
+    const authorizedRoles = ['מפתח', 'אדמין', 'פיקוד יחידה', 'מפקד משל"ט'];
+    return authorizedRoles.includes(user.role);
+  };
+
   const [profileData, setProfileData] = useState({
     username: '',
     full_name: '',
@@ -255,11 +264,18 @@ const Profile = () => {
                 <TextField
                   fullWidth
                   label="טלפון"
-                  value={profileData.phone_number}
+                  value={profileData.phone_number || 'לא צוין'}
                   disabled={true}
                   variant="outlined"
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem',
+                      color: profileData.phone_number ? 'primary.main' : 'text.secondary'
+                    }
+                  }}
                   InputProps={{
-                    startAdornment: <PhoneIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    startAdornment: <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
                   }}
                 />
               </Grid>
@@ -467,17 +483,19 @@ const Profile = () => {
                     </Typography>
                   </Box>
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <IdIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      מזהה משתמש
-                    </Typography>
-                    <Typography variant="body1">
-                      {user?.id_number || 'לא זמין'}
-                    </Typography>
+                {canViewIdNumbers() && (
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <IdIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        מזהה משתמש
+                      </Typography>
+                      <Typography variant="body1">
+                        {user?.id_number || 'לא זמין'}
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
+                )}
               </Box>
             </CardContent>
           </Card>

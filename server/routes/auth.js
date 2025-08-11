@@ -312,7 +312,7 @@ router.get('/me', auth, async (req, res) => {
   try {
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .select('id, full_name, username, role, created_at, is_active, id_number, photo_url, must_change_password, position')
+      .select('id, full_name, username, role, created_at, is_active, id_number, phone_number, photo_url, must_change_password, position, has_car, car_type, license_plate, car_color')
       .eq('id', req.user.id)
       .single();
 

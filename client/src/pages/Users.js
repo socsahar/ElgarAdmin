@@ -55,6 +55,7 @@ import UserPermissionsDialog from '../components/UserPermissionsDialog';
 
 const Users = () => {
   const navigate = useNavigate();
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -83,6 +84,13 @@ const Users = () => {
   const [creatingVehicles, setCreatingVehicles] = useState(false);
   const { isSuperRole, user: currentUser } = useAuth();
   const { canModifyPrivileges, canManageUser, canManageRole, hasPermission, isManagementRole } = usePermissions();
+
+  // Check if current user can view ID numbers
+  const canViewIdNumbers = () => {
+    if (!currentUser) return false;
+    const authorizedRoles = ['מפתח', 'אדמין', 'פיקוד יחידה', 'מפקד משל"ט'];
+    return authorizedRoles.includes(currentUser.role);
+  };
 
   // Hebrew role options
   const allRoles = [
@@ -170,8 +178,14 @@ const Users = () => {
   const handleCreateUser = async () => {
     try {
       // Comprehensive validation
-      if (!formData.username || !formData.full_name || !formData.phone_number || 
-          !formData.id_number || !formData.position || !formData.role) {
+      const requiredFields = ['username', 'full_name', 'phone_number', 'position', 'role'];
+      // Only require ID number if user has permission to see/edit it
+      if (canViewIdNumbers()) {
+        requiredFields.push('id_number');
+      }
+      
+      const missingFields = requiredFields.filter(field => !formData[field]);
+      if (missingFields.length > 0) {
         setError('נא למלא את כל השדות הנדרשים');
         return;
       }
@@ -183,11 +197,13 @@ const Users = () => {
         return;
       }
 
-      // ID number validation (exactly 9 digits)
-      const idRegex = /^[0-9]{9}$/;
-      if (!idRegex.test(formData.id_number)) {
-        setError('תעודת הזהות חייבת להכיל בדיוק 9 ספרות');
-        return;
+      // ID number validation (exactly 9 digits) - only if user can view/edit ID numbers
+      if (canViewIdNumbers() && formData.id_number) {
+        const idRegex = /^[0-9]{9}$/;
+        if (!idRegex.test(formData.id_number)) {
+          setError('תעודת הזהות חייבת להכיל בדיוק 9 ספרות');
+          return;
+        }
       }
 
       // Car fields validation if user has a car
@@ -203,7 +219,6 @@ const Users = () => {
         username: formData.username,
         full_name: formData.full_name,
         phone_number: formData.phone_number,
-        id_number: formData.id_number,
         position: formData.position,
         password: '123456', // Default password
         role: formData.role,
@@ -214,6 +229,11 @@ const Users = () => {
         photo_url: formData.photo_url || null,
         is_active: formData.is_active
       };
+
+      // Only include ID number if user has permission to set it
+      if (canViewIdNumbers() && formData.id_number) {
+        userData.id_number = formData.id_number;
+      }
 
       // Use server API route that handles password hashing
       const response = await api.post('/api/users', userData);
@@ -239,7 +259,14 @@ const Users = () => {
       if (!editingUser) return;
 
       // Validation for update
-      if (!formData.full_name || !formData.phone_number || !formData.id_number || !formData.position) {
+      const requiredFields = ['full_name', 'phone_number', 'position'];
+      // Only require ID number if user has permission to see/edit it
+      if (canViewIdNumbers()) {
+        requiredFields.push('id_number');
+      }
+      
+      const missingFields = requiredFields.filter(field => !formData[field]);
+      if (missingFields.length > 0) {
         setError('נא למלא את כל השדות הנדרשים');
         return;
       }
@@ -251,11 +278,13 @@ const Users = () => {
         return;
       }
 
-      // ID number validation
-      const idRegex = /^[0-9]{9}$/;
-      if (!idRegex.test(formData.id_number)) {
-        setError('תעודת הזהות חייבת להכיל בדיוק 9 ספרות');
-        return;
+      // ID number validation - only if user can view/edit ID numbers
+      if (canViewIdNumbers() && formData.id_number) {
+        const idRegex = /^[0-9]{9}$/;
+        if (!idRegex.test(formData.id_number)) {
+          setError('תעודת הזהות חייבת להכיל בדיוק 9 ספרות');
+          return;
+        }
       }
 
       // Car fields validation if user has a car
@@ -269,7 +298,6 @@ const Users = () => {
       const updateData = {
         full_name: formData.full_name,
         phone_number: formData.phone_number,
-        id_number: formData.id_number,
         position: formData.position,
         role: formData.role,
         has_car: formData.has_car,
@@ -279,6 +307,11 @@ const Users = () => {
         photo_url: formData.photo_url || null,
         is_active: formData.is_active
       };
+
+      // Only include ID number if user has permission to edit it
+      if (canViewIdNumbers() && formData.id_number) {
+        updateData.id_number = formData.id_number;
+      }
 
       // Use server API route
       const response = await api.put(`/api/users/${editingUser.id}`, updateData);
@@ -676,9 +709,8 @@ const Users = () => {
                             <Typography variant="body2" fontWeight="bold">
                               {user.full_name}
                             </Typography>
-                            {/* Hide ID number for סייר users and hide מפתח ID from non-מפתח users */}
-                            {user.id_number && hasPermission('access_users_crud') && 
-                             !(user.role === 'מפתח' && currentUser?.role !== 'מפתח') && (
+                            {/* Hide ID number from unauthorized users */}
+                            {user.id_number && canViewIdNumbers() && (
                               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                                 ת.ז: {user.id_number}
                               </Typography>
@@ -703,7 +735,14 @@ const Users = () => {
                       </TableCell>
                       <TableCell>
                         <Box>
-                          <Typography variant="body2">
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: user.phone_number ? 'bold' : 'normal',
+                              color: user.phone_number ? 'primary.main' : 'text.secondary',
+                              fontSize: '0.95rem'
+                            }}
+                          >
                             {user.phone_number || 'לא צוין'}
                           </Typography>
                         </Box>
@@ -818,8 +857,8 @@ const Users = () => {
               />
             </Grid>
             
-            {/* ID Number - Hide for מפתח users unless current user is also מפתח */}
-            {!(editingUser?.role === 'מפתח' && currentUser?.role !== 'מפתח') && (
+            {/* ID Number - Hide from unauthorized users */}
+            {canViewIdNumbers() && (
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -1070,6 +1109,13 @@ const Users = () => {
                     fullWidth
                     InputProps={{ readOnly: true }}
                     variant="outlined"
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        color: selectedUserDetails.phone_number ? 'primary.main' : 'text.secondary'
+                      }
+                    }}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -1103,8 +1149,8 @@ const Users = () => {
                         variant="outlined"
                       />
                     </Grid>
-                    {/* Hide ID number for מפתח users unless current user is also מפתח */}
-                    {!(selectedUserDetails.role === 'מפתח' && currentUser?.role !== 'מפתח') && (
+                    {/* Hide ID number from unauthorized users */}
+                    {canViewIdNumbers() && (
                       <Grid item xs={6}>
                         <TextField
                           label="תעודת זהות"
