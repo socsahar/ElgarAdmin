@@ -462,12 +462,15 @@ const Summaries = () => {
                         <TableCell sx={{ fontWeight: 600 }}>לוחית רישוי</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>סטטוס</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>זמן הקצאה</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>יציאה</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>הגעה למקום</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>סיום</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {events.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
+                          <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
                             <Typography variant="body2" color="text.secondary">
                               לא נמצאו אירועים בטווח התאריכים הנבחר
                             </Typography>
@@ -507,6 +510,39 @@ const Summaries = () => {
                                 format(new Date(event.assigned_at), 'dd/MM/yyyy HH:mm') : 
                                 'לא ידוע'
                               }
+                            </TableCell>
+                            <TableCell>
+                              {event.departure_time ? (
+                                <Typography variant="body2" color="primary">
+                                  {format(new Date(event.departure_time), 'dd/MM HH:mm')}
+                                </Typography>
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  לא יצא
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {event.arrival_time ? (
+                                <Typography variant="body2" color="warning.main">
+                                  {format(new Date(event.arrival_time), 'dd/MM HH:mm')}
+                                </Typography>
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  לא הגיע
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {event.completion_time ? (
+                                <Typography variant="body2" color="success.main">
+                                  {format(new Date(event.completion_time), 'dd/MM HH:mm')}
+                                </Typography>
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  לא סיים
+                                </Typography>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))

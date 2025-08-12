@@ -18,6 +18,69 @@ const requireSuperRole = (req, res, next) => {
 };
 
 /**
+ * Update user location
+ */
+router.post('/update-location', auth, async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const userId = req.user.id;
+
+    // Validate coordinates
+    if (!latitude || !longitude) {
+      return res.status(400).json({ 
+        error: 'נדרשים קואורדינטות מיקום',
+        message: 'Latitude and longitude are required' 
+      });
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ 
+        error: 'קואורדינטות מיקום לא תקינות',
+        message: 'Invalid coordinate values' 
+      });
+    }
+
+    // Update user location
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .update({
+        last_latitude: latitude,
+        last_longitude: longitude,
+        last_location_update: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select('id, full_name, last_latitude, last_longitude, last_location_update')
+      .single();
+
+    if (error) {
+      console.error('Error updating user location:', error);
+      return res.status(500).json({ 
+        error: 'שגיאה בעדכון מיקום',
+        message: error.message 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'מיקום עודכן בהצלחה',
+      location: {
+        latitude: data.last_latitude,
+        longitude: data.last_longitude,
+        updated_at: data.last_location_update
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in update-location:', error);
+    res.status(500).json({ 
+      error: 'שגיאת שרת פנימית',
+      message: 'Internal server error' 
+    });
+  }
+});
+
+/**
  * Get single user by ID
  */
 router.get('/:id', auth, async (req, res) => {

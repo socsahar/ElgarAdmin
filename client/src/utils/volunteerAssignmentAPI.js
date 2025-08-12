@@ -34,6 +34,29 @@ export const volunteerAssignmentAPI = {
   removeAssignment: async (assignmentId) => {
     const response = await api.delete(`/api/volunteer-assignments/${assignmentId}`);
     return response.data;
+  },
+
+  // Update tracking status (יציאה/מקום/סיום)
+  updateTrackingStatus: async (assignmentId, status, latitude = null, longitude = null, notes = null) => {
+    const response = await api.put(`/api/volunteer-assignments/${assignmentId}/tracking-status`, {
+      status,
+      latitude,
+      longitude,
+      notes
+    });
+    return response.data;
+  },
+
+  // Get tracking information for an assignment
+  getTrackingInfo: async (assignmentId) => {
+    const response = await api.get(`/api/volunteer-assignments/${assignmentId}/tracking-info`);
+    return response.data;
+  },
+
+  // Get all active tracking assignments (for live map)
+  getActiveTracking: async () => {
+    const response = await api.get('/api/volunteer-assignments/active-tracking');
+    return response.data;
   }
 };
 

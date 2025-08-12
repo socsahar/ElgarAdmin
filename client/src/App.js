@@ -20,6 +20,7 @@ import Users from './pages/Users';
 import EventManagement from './pages/EventManagement';
 import ActionReports from './pages/ActionReports';
 import Analytics from './pages/Analytics';
+import TrackingAnalytics from './pages/TrackingAnalytics';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Volunteers from './pages/Volunteers';
@@ -212,6 +213,14 @@ function App() {
             element={
               <ProtectedRoute permission="access_analytics">
                 <Analytics />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="tracking-analytics" 
+            element={
+              <ProtectedRoute permission="access_analytics">
+                <TrackingAnalytics />
               </ProtectedRoute>
             } 
           />

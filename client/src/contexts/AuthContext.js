@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../utils/api'; // Use the configured API instance
+import locationService from '../services/locationService';
 
 const AuthContext = createContext();
 
@@ -24,6 +25,22 @@ export const AuthProvider = ({ children }) => {
       api.get('/api/auth/me')
         .then(response => {
           setUser(response.data.user);
+          
+          // Start location tracking for valid logged-in users
+          try {
+            if (locationService.isSupported()) {
+              locationService.requestPermission()
+                .then(() => {
+                  locationService.startTracking();
+                  console.log('Location tracking started on app load');
+                })
+                .catch(error => {
+                  console.log('Location permission denied on app load:', error.message);
+                });
+            }
+          } catch (error) {
+            console.log('Location service error on app load:', error);
+          }
         })
         .catch(() => {
           // Token is invalid
@@ -49,6 +66,20 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(userData);
+      
+      // Start location tracking for logged-in users
+      try {
+        if (locationService.isSupported()) {
+          await locationService.requestPermission();
+          locationService.startTracking();
+          console.log('Location tracking started for user');
+        } else {
+          console.log('Location tracking not supported');
+        }
+      } catch (locationError) {
+        console.log('Location permission denied or error:', locationError.message);
+        // Don't fail login if location is denied
+      }
       
       // Check if user must change password
       if (userData.mustChangePassword) {
@@ -87,6 +118,9 @@ export const AuthProvider = ({ children }) => {
       console.warn('Logout API call failed:', error);
       // Continue with logout even if API call fails
     } finally {
+      // Stop location tracking
+      locationService.stopTracking();
+      
       localStorage.removeItem('token');
       delete api.defaults.headers.common['Authorization'];
       setUser(null);
