@@ -106,29 +106,32 @@ function App() {
       setNavigationLoading(true);
       const timer = setTimeout(() => {
         setNavigationLoading(false);
-      }, 500); // Short delay to show loading for navigation
+      }, 150); // Much shorter delay - just for visual feedback
       
       return () => clearTimeout(timer);
     }
   }, [location.pathname, user]);
 
-  // Show initial loading spinner or navigation loading
-  if (loading || navigationLoading) {
-    return <LoadingSpinner message={loading ? "טוען מערכת אלגר..." : "טוען עמוד..."} />;
+  // Show initial loading spinner only (not navigation loading)
+  if (loading) {
+    return <LoadingSpinner message="טוען מערכת אלגר..." />;
   }
 
   return (
     <PermissionsProvider>
       <Box sx={{ direction: 'rtl', minHeight: '100vh' }}>
-      {/* Global loading bar for navigation */}
-      {connecting && (
+      {/* Global loading bar for navigation and connection */}
+      {(connecting || navigationLoading) && (
         <LinearProgress 
           sx={{ 
             position: 'fixed', 
             top: 0, 
             left: 0, 
             right: 0, 
-            zIndex: 9999 
+            zIndex: 9999,
+            '& .MuiLinearProgress-bar': {
+              backgroundColor: navigationLoading ? '#2196f3' : '#ff9800'
+            }
           }} 
         />
       )}
