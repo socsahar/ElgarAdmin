@@ -13,7 +13,11 @@ import {
   CardContent,
   Chip,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -32,6 +36,21 @@ import api from '../utils/api';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
+
+  // Car color options
+  const carColors = [
+    'לבן',
+    'שחור', 
+    'אפור',
+    'כסף',
+    'אדום',
+    'צהוב',
+    'כתום',
+    'ירוק',
+    'כחול',
+    'סגול',
+    'חום'
+  ];
 
   // Check if current user can view ID numbers
   const canViewIdNumbers = () => {
@@ -356,14 +375,24 @@ const Profile = () => {
                     />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="צבע רכב"
-                      value={profileData.car_color}
-                      onChange={handleProfileChange('car_color')}
-                      disabled={false}
-                      variant="outlined"
-                    />
+                    <FormControl fullWidth required={profileData.has_car} disabled={!profileData.has_car}>
+                      <InputLabel>{`צבע רכב ${profileData.has_car ? '*' : ''}`}</InputLabel>
+                      <Select
+                        value={profileData.car_color}
+                        onChange={handleProfileChange('car_color')}
+                        label={`צבע רכב ${profileData.has_car ? '*' : ''}`}
+                        displayEmpty
+                      >
+                        <MenuItem value="">
+                          <em>{profileData.has_car ? "בחר צבע רכב" : "אין רכב"}</em>
+                        </MenuItem>
+                        {carColors.map((color) => (
+                          <MenuItem key={color} value={color}>
+                            {color}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </Grid>
                   <Grid item xs={12}>
                     <Button
