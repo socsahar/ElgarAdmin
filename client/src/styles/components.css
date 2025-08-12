@@ -355,37 +355,475 @@
   margin-bottom: 24px;
 }
 
-/* ----- Responsive Design ----- */
+/* ----- Enhanced Mobile Responsiveness ----- */
+
+/* Global mobile viewport settings */
+@viewport {
+  width: device-width;
+  initial-scale: 1.0;
+  maximum-scale: 5.0;
+  user-scalable: yes;
+}
+
+/* Additional mobile spacing improvements */
 @media (max-width: 768px) {
+  /* Global container spacing */
+  * {
+    box-sizing: border-box;
+  }
+  
+  /* Main content areas */
+  .MuiContainer-root {
+    padding: 16px 20px !important;
+  }
+  
+  /* Card components spacing */
+  .MuiCard-root {
+    margin: 12px 8px !important;
+    padding: 4px !important;
+  }
+  
+  .MuiCardContent-root {
+    padding: 20px !important;
+  }
+  
+  /* Button spacing */
+  .MuiButton-root {
+    margin: 8px 4px !important;
+    min-height: 48px !important;
+    padding: 12px 24px !important;
+  }
+  
+  /* Form field spacing */
+  .MuiFormControl-root {
+    margin: 12px 0 !important;
+  }
+  
+  .MuiTextField-root {
+    margin: 12px 0 !important;
+  }
+  
+  /* List item spacing */
+  .MuiListItem-root {
+    padding: 12px 16px !important;
+    margin: 4px 0 !important;
+  }
+  
+  /* Typography spacing */
+  .MuiTypography-h1,
+  .MuiTypography-h2,
+  .MuiTypography-h3,
+  .MuiTypography-h4,
+  .MuiTypography-h5,
+  .MuiTypography-h6 {
+    margin-bottom: 16px !important;
+    line-height: 1.4 !important;
+  }
+  
+  .MuiTypography-body1,
+  .MuiTypography-body2 {
+    margin-bottom: 12px !important;
+    line-height: 1.5 !important;
+  }
+  
+  /* Divider spacing */
+  .MuiDivider-root {
+    margin: 16px 0 !important;
+  }
+  
+  /* Toolbar spacing */
+  .MuiToolbar-root {
+    padding: 0 20px !important;
+    min-height: 64px !important;
+  }
+}
+
+/* Root mobile improvements */
+@media (max-width: 768px) {
+  /* Base container improvements */
+  .event-management-container {
+    padding: 20px 16px !important;
+  }
+  
+  /* Header improvements */
   .event-header {
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     align-items: stretch;
+    margin-bottom: 24px;
+    padding: 0 4px;
   }
   
+  .event-title {
+    font-size: 1.5rem;
+    gap: 12px;
+    text-align: center;
+    justify-content: center;
+    padding: 8px 0;
+  }
+  
+  /* Stats grid improvements */
   .event-stats-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 0 4px;
   }
   
-  .filters-grid {
-    grid-template-columns: 1fr;
+  .stat-card {
+    padding: 24px 20px;
+    margin: 0 8px;
+    border-radius: 20px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
   
-  .form-grid {
-    grid-template-columns: 1fr;
+  .stat-number {
+    font-size: 2.2rem;
+    margin: 8px 0;
+  }
+  
+  .stat-label {
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+  
+  /* Event cards improvements */
+  .events-grid {
+    gap: 16px;
+    padding: 0 4px;
+  }
+  
+  .event-card {
+    padding: 20px 16px;
+    margin: 0 8px 16px 8px;
+    border-radius: 20px;
+    border-right-width: 6px;
+    min-height: 200px;
   }
   
   .event-card-header {
     flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+    margin-bottom: 16px;
+  }
+  
+  .event-title-text {
+    font-size: 1.2rem;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+  
+  .event-location {
+    font-size: 1rem;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 4px 0;
+  }
+  
+  .event-meta {
     gap: 12px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    margin: 8px 0;
+  }
+  
+  .event-status-section {
+    align-items: stretch;
+    text-align: center;
+    padding: 8px 0;
+  }
+  
+  .event-details {
+    margin: 16px 0;
+    padding: 16px;
+    border-radius: 16px;
+    border-right-width: 4px;
+  }
+  
+  /* Car info improvements */
+  .car-info-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 16px 0;
+    padding: 0 4px;
+  }
+  
+  .car-info-item {
+    padding: 16px;
+    border-radius: 16px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  .car-info-label {
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  
+  .car-info-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  /* Action buttons improvements */
+  .action-buttons {
+    justify-content: center;
+    gap: 16px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+  }
+  
+  .action-button {
+    min-width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    flex: 0 0 auto;
+    margin: 4px;
+  }
+  
+  /* Filter section improvements */
+  .filters-section {
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 20px;
+  }
+  
+  .filters-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  /* Form improvements */
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-top: 20px;
+  }
+  
+  .form-section {
+    padding: 20px;
+    border-radius: 16px;
+    border-right-width: 4px;
+    margin-bottom: 16px;
+  }
+  
+  .form-section-title {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+    gap: 8px;
+    font-weight: 600;
+  }
+  
+  /* Status chips improvements */
+  .status-chip {
+    padding: 12px 20px;
+    border-radius: 24px;
+    font-size: 1rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 4px;
+    font-weight: 500;
+  }
+  
+  .car-status-chip {
+    padding: 12px 20px;
+    border-radius: 24px;
+    font-size: 1rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 4px;
+    font-weight: 500;
+  }
+  
+  /* Empty state improvements */
+  .empty-state {
+    padding: 40px 16px;
+  }
+  
+  .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+  }
+  
+  .empty-state-title {
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+  }
+  
+  .empty-state-description {
+    font-size: 1rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  
+  /* Loading improvements */
+  .loading-spinner {
+    padding: 60px 20px;
+  }
+  
+  .loading-text {
+    margin-top: 20px;
+    font-size: 1rem;
+  }
+}
+
+/* Small mobile devices (max-width: 480px) */
+@media (max-width: 480px) {
+  .event-management-container {
+    padding: 8px !important;
+  }
+  
+  .stat-card {
+    padding: 16px 12px;
+    margin: 0 2px;
+  }
+  
+  .stat-number {
+    font-size: 1.8rem;
+  }
+  
+  .stat-label {
+    font-size: 0.9rem;
+  }
+  
+  .event-card {
+    padding: 12px;
+    margin: 0 1px 8px 1px;
+  }
+  
+  .event-title-text {
+    font-size: 1rem;
+  }
+  
+  .event-location {
+    font-size: 0.85rem;
+  }
+  
+  .action-button {
+    min-width: 44px;
+    height: 44px;
+    border-radius: 10px;
+  }
+  
+  .filters-section {
+    padding: 12px;
+  }
+  
+  .form-section {
+    padding: 12px;
+  }
+  
+  .empty-state {
+    padding: 30px 12px;
+  }
+  
+  .empty-state-icon {
+    font-size: 2.5rem;
+  }
+  
+  .empty-state-title {
+    font-size: 1.2rem;
+  }
+  
+  .empty-state-description {
+    font-size: 0.95rem;
+  }
+}
+
+/* Tablet landscape improvements */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .event-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .filters-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
   }
   
   .car-info-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Touch device improvements */
+@media (pointer: coarse) {
+  /* Better touch targets */
+  .action-button {
+    min-width: 48px;
+    min-height: 48px;
   }
   
-  .action-buttons {
-    justify-content: center;
+  .status-chip {
+    min-height: 40px;
+    padding: 10px 16px;
+  }
+  
+  .car-status-chip {
+    min-height: 40px;
+    padding: 10px 16px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  .event-card:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .stat-card:hover {
+    transform: none;
+  }
+  
+  .action-button:hover {
+    transform: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .event-card {
+    border: 2px solid #000;
+  }
+  
+  .stat-card {
+    border: 2px solid #000;
+  }
+  
+  .action-button {
+    border: 2px solid #000;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .fade-in,
+  .slide-up {
+    animation: none;
   }
 }
 

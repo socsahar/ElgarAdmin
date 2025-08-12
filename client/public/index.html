@@ -3,26 +3,52 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    
+    <!-- Enhanced mobile viewport configuration -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+    
+    <!-- PWA meta tags -->
+    <meta name="theme-color" content="#1976d2" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="מערכת אלגר" />
+    
+    <!-- Enhanced description -->
     <meta
       name="description"
-      content="מערכת ניהול אלגר - לוח בקרה ומעקב"
+      content="מערכת ניהול אלגר - לוח בקרה ומעקב אירועי חירום. ממשק נייד ומותאם עבור כל המכשירים."
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    
+    <!-- Social media meta tags -->
+    <meta property="og:title" content="מערכת ניהול אלגר" />
+    <meta property="og:description" content="מערכת ניהול אירועי חירום ומעקב" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Icons for different devices -->
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     
-    <!-- Hebrew and RTL font support -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- Preconnect to font providers for better performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Enhanced Hebrew and RTL font support with display=swap for better performance -->
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Material-UI RTL support -->
+    <!-- Material-UI icons -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
     
-    <title>מערכת אלגר - לוח בקרה</title>
-    
+    <!-- Prevent text size adjustment on mobile -->
     <style>
+      * {
+        -webkit-text-size-adjust: 100%;
+        -moz-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+      
       body {
         margin: 0;
         font-family: 'Heebo', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -32,6 +58,13 @@
         -moz-osx-font-smoothing: grayscale;
         direction: rtl;
         text-align: right;
+        font-size: 16px; /* Base font size to prevent mobile zoom */
+        line-height: 1.5;
+      }
+      
+      /* Improved loading screen */
+      #root {
+        min-height: 100vh;
       }
       
       code {
@@ -39,16 +72,25 @@
           monospace;
       }
       
-      /* Loading spinner styles */
+      /* Enhanced loading spinner styles */
       .initial-loading {
         display: flex;
         justify-content: center;
         align-items: center;
         height: 100vh;
         flex-direction: column;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
         color: white;
         font-family: 'Heebo', sans-serif;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      
+      .loading-logo {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 24px;
+        animation: pulse 2s infinite;
       }
       
       .spinner {
@@ -66,21 +108,127 @@
         100% { transform: rotate(360deg); }
       }
       
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      
       .loading-text {
-        font-size: 18px;
-        font-weight: 500;
-        margin-top: 10px;
+        font-size: 24px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        text-align: center;
+      }
+      
+      .loading-subtext {
+        font-size: 16px;
+        opacity: 0.9;
+        text-align: center;
+      }
+      
+      /* Mobile specific improvements */
+      @media (max-width: 600px) {
+        .initial-loading {
+          padding: 16px;
+        }
+        
+        .loading-logo {
+          width: 48px;
+          height: 48px;
+          margin-bottom: 20px;
+        }
+        
+        .spinner {
+          width: 40px;
+          height: 40px;
+          margin-bottom: 16px;
+        }
+        
+        .loading-text {
+          font-size: 20px;
+        }
+        
+        .loading-subtext {
+          font-size: 14px;
+        }
+      }
+      
+      @media (max-width: 400px) {
+        .loading-text {
+          font-size: 18px;
+        }
+        
+        .loading-subtext {
+          font-size: 13px;
+        }
+      }
+      
+      /* Hide loading when app loads */
+      .app-loaded .initial-loading {
+        display: none;
+      }
+      
+      /* Smooth transition for app loading */
+      .app-transition {
+        opacity: 0;
+        animation: fadeIn 0.5s ease-in forwards;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
     </style>
+    
+    <title>מערכת ניהול אלגר</title>
   </head>
   <body>
     <noscript>עליך להפעיל JavaScript כדי להריץ יישום זה.</noscript>
+    
     <div id="root">
-      <!-- Loading screen while React loads -->
-      <div class="initial-loading">
+      <!-- Enhanced loading screen while React loads -->
+      <div class="initial-loading" id="loading-screen">
+        <img src="%PUBLIC_URL%/logo192.png" alt="לוגו אלגר" class="loading-logo" />
         <div class="spinner"></div>
-        <div class="loading-text">טוען מערכת אלגר...</div>
+        <div class="loading-text">מערכת אלגר</div>
+        <div class="loading-subtext">טוען מערכת ניהול חירום...</div>
       </div>
     </div>
+    
+    <!-- Enhanced app loading script -->
+    <script>
+      // Hide loading screen when app loads
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loadingScreen = document.getElementById('loading-screen');
+          const root = document.getElementById('root');
+          
+          if (loadingScreen) {
+            loadingScreen.style.opacity = '0';
+            loadingScreen.style.transition = 'opacity 0.5s ease-out';
+            
+            setTimeout(function() {
+              loadingScreen.style.display = 'none';
+              document.body.classList.add('app-loaded');
+              
+              // Add transition class to root
+              if (root) {
+                root.classList.add('app-transition');
+              }
+            }, 500);
+          }
+        }, 200);
+      });
+      
+      // Ensure loading screen is hidden after max 10 seconds
+      setTimeout(function() {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen && loadingScreen.style.display !== 'none') {
+          loadingScreen.style.display = 'none';
+          document.body.classList.add('app-loaded');
+        }
+      }, 10000);
+    </script>
   </body>
 </html>

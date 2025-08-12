@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // Import CSS
 import './styles/components.css';
+import './styles/mobile-enhancements.css';
 
 // Import pages
 import Login from './pages/Login';

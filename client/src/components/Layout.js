@@ -19,6 +19,7 @@ import {
   useTheme,
   useMediaQuery,
   Collapse,
+  SwipeableDrawer,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -35,15 +36,16 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   Search as SearchIcon,
+  ChevronLeft as ChevronLeftIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
 import UserAvatar from './UserAvatar';
 import { useThemeMode } from '../contexts/ThemeContext';
 
-// Responsive drawer widths
+// Enhanced responsive drawer widths
 const drawerWidth = 280;
-const mobileDrawerWidth = '85vw'; // 85% of viewport width on mobile
+const mobileDrawerWidth = Math.min(320, window.innerWidth * 0.9); // Dynamic width based on screen size
 
 const allMenuItems = [
   { text: 'לוח בקרה', icon: <DashboardIcon />, path: '/dashboard', permission: 'view_dashboard_events' },
@@ -64,9 +66,10 @@ const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Mobile detection
+  // Enhanced mobile detection
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'));
+  const isSmallMobile = useMediaQuery('(max-width: 400px)');
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -119,9 +122,15 @@ const Layout = () => {
 
   const isMenuOpen = Boolean(anchorEl);
 
+  // Enhanced drawer content with better mobile UX
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Mobile header with close button */}
+    <Box sx={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      bgcolor: 'background.paper'
+    }}>
+      {/* Mobile header with enhanced styling */}
       {isMobile && (
         <Box sx={{ 
           display: 'flex', 
@@ -129,23 +138,30 @@ const Layout = () => {
           alignItems: 'center',
           p: 2,
           borderBottom: 1,
-          borderColor: 'divider'
+          borderColor: 'divider',
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText'
         }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
             תפריט ניווט
           </Typography>
-          <IconButton onClick={handleMobileDrawerToggle} size="small">
-            <CloseIcon />
+          <IconButton 
+            onClick={handleMobileDrawerToggle} 
+            size="small"
+            sx={{ color: 'inherit' }}
+          >
+            <ChevronLeftIcon />
           </IconButton>
         </Box>
       )}
       
-      {/* Logo and title - responsive */}
+      {/* Logo and title - enhanced responsive design */}
       <Toolbar sx={{ 
         flexDirection: 'column', 
         alignItems: 'center', 
-        py: isMobile ? 1 : 2,
-        minHeight: isMobile ? 'auto' : '64px'
+        py: isMobile ? 2 : 3,
+        minHeight: isMobile ? 'auto' : '64px',
+        bgcolor: isMobile ? 'background.default' : 'transparent'
       }}>
         <Box sx={{ 
           display: 'flex', 
@@ -158,7 +174,7 @@ const Layout = () => {
             src="/img/logo.png" 
             alt="לוגו אלגר" 
             style={{ 
-              height: isMobile ? '30px' : '40px', 
+              height: isMobile ? (isSmallMobile ? '24px' : '32px') : '40px', 
               width: 'auto',
               marginLeft: isMobile ? '0' : '8px',
               marginBottom: isMobile ? '8px' : '0'
@@ -167,7 +183,10 @@ const Layout = () => {
           <Typography 
             variant={isMobile ? "subtitle1" : "h6"} 
             component="div" 
-            sx={{ fontWeight: 'bold' }}
+            sx={{ 
+              fontWeight: 'bold',
+              fontSize: isMobile ? (isSmallMobile ? '1rem' : '1.1rem') : '1.25rem'
+            }}
           >
             מערכת אלגר
           </Typography>
@@ -186,19 +205,19 @@ const Layout = () => {
       
       <Divider />
       
-      {/* Navigation menu - responsive */}
+      {/* Navigation menu - enhanced mobile-friendly styling */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <List sx={{ px: isMobile ? 1 : 0 }}>
+        <List sx={{ px: isMobile ? 0.5 : 0 }}>
           {menuItems.map((item) => (
             <ListItem key={item.text} disablePadding>
               <ListItemButton
                 selected={location.pathname === item.path}
                 onClick={() => handleDrawerItemClick(item.path)}
                 sx={{
-                  borderRadius: isMobile ? 1 : 0,
-                  mx: isMobile ? 0.5 : 0,
-                  my: isMobile ? 0.25 : 0,
-                  minHeight: isMobile ? 44 : 48,
+                  borderRadius: isMobile ? 2 : 0,
+                  mx: isMobile ? 1 : 0,
+                  my: isMobile ? 0.75 : 0,
+                  minHeight: isMobile ? (isSmallMobile ? 56 : 60) : 48,
                   '&.Mui-selected': {
                     backgroundColor: 'primary.main',
                     color: 'primary.contrastText',
@@ -216,7 +235,7 @@ const Layout = () => {
               >
                 <ListItemIcon 
                   sx={{ 
-                    minWidth: isMobile ? 40 : 56,
+                    minWidth: isMobile ? 48 : 56,
                     color: location.pathname === item.path ? 'inherit' : 'text.secondary'
                   }}
                 >
@@ -225,7 +244,7 @@ const Layout = () => {
                 <ListItemText 
                   primary={item.text}
                   primaryTypographyProps={{
-                    fontSize: isMobile ? '0.9rem' : '1rem',
+                    fontSize: isMobile ? (isSmallMobile ? '0.95rem' : '1rem') : '1rem',
                     fontWeight: location.pathname === item.path ? 'bold' : 'normal'
                   }}
                 />
@@ -235,19 +254,21 @@ const Layout = () => {
         </List>
       </Box>
       
-      {/* User info at bottom - responsive */}
+      {/* Enhanced user info at bottom */}
       <Box sx={{ mt: 'auto' }}>
         <Divider />
         <Box sx={{ 
-          p: isMobile ? 1.5 : 2, 
+          p: isMobile ? 2.5 : 2, 
           display: 'flex', 
           alignItems: 'center',
           flexDirection: isMobile ? 'column' : 'row',
-          textAlign: isMobile ? 'center' : 'right'
+          textAlign: isMobile ? 'center' : 'right',
+          bgcolor: 'action.hover',
+          minHeight: isMobile ? 80 : 'auto'
         }}>
           <UserAvatar 
             user={user} 
-            size={isMobile ? 32 : 40}
+            size={isMobile ? (isSmallMobile ? 36 : 40) : 40}
             sx={{ 
               mb: isMobile ? 1 : 0,
               ml: isMobile ? 0 : 1 
@@ -259,10 +280,10 @@ const Layout = () => {
             overflow: 'hidden'
           }}>
             <Typography 
-              variant={isMobile ? "caption" : "body2"} 
+              variant={isMobile ? "body2" : "body2"} 
               sx={{ 
                 fontWeight: 'bold',
-                fontSize: isMobile ? '0.8rem' : '0.875rem',
+                fontSize: isMobile ? (isSmallMobile ? '0.85rem' : '0.9rem') : '0.875rem',
                 lineHeight: 1.2,
                 display: 'block',
                 whiteSpace: 'nowrap',
@@ -276,7 +297,7 @@ const Layout = () => {
               variant="caption" 
               color="text.secondary"
               sx={{ 
-                fontSize: isMobile ? '0.7rem' : '0.75rem',
+                fontSize: isMobile ? '0.75rem' : '0.75rem',
                 display: 'block',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -293,21 +314,25 @@ const Layout = () => {
 
   return (
     <Box sx={{ display: 'flex', direction: 'rtl' }}>
-      {/* Mobile AppBar */}
+      {/* Enhanced Mobile AppBar */}
       {isMobile && (
         <AppBar
           position="fixed"
           sx={{
             zIndex: theme.zIndex.drawer + 1,
+            height: 64,
           }}
         >
-          <Toolbar>
+          <Toolbar sx={{ minHeight: '64px !important' }}>
             <IconButton
               color="inherit"
               aria-label="פתח תפריט"
               edge="start"
               onClick={handleMobileDrawerToggle}
-              sx={{ mr: 2 }}
+              sx={{ 
+                mr: 2,
+                p: 1.5
+              }}
             >
               <MenuIcon />
             </IconButton>
@@ -317,30 +342,42 @@ const Layout = () => {
                 src="/img/logo.png" 
                 alt="לוגו אלגר" 
                 style={{ 
-                  height: '28px', 
+                  height: isSmallMobile ? '24px' : '28px', 
                   width: 'auto',
                   marginLeft: '8px'
                 }}
               />
-              <Typography variant="h6" component="div" sx={{ fontSize: '1.1rem' }}>
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ 
+                  fontSize: isSmallMobile ? '1rem' : '1.1rem',
+                  fontWeight: 'bold'
+                }}
+              >
                 מערכת אלגר
               </Typography>
             </Box>
 
-            <IconButton color="inherit" onClick={toggleMode} sx={{ mr: 1 }}>
+            <IconButton 
+              color="inherit" 
+              onClick={toggleMode} 
+              sx={{ mr: 1, p: 1.5 }}
+            >
               {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
 
             <IconButton
-              size="small"
+              size="large"
               edge="end"
               aria-label="פרופיל משתמש"
               onClick={handleProfileMenuOpen}
               color="inherit"
+              sx={{ p: 1 }}
             >
               <UserAvatar 
-                user={user}
-                size={28}
+                user={user} 
+                size={isSmallMobile ? 28 : 32}
                 roleColor="secondary"
                 clickable={false}
               />
@@ -402,7 +439,7 @@ const Layout = () => {
         </AppBar>
       )}
 
-      {/* Navigation Drawer */}
+      {/* Enhanced Navigation Drawer */}
       <Box
         component="nav"
         sx={{ 
@@ -410,15 +447,16 @@ const Layout = () => {
           flexShrink: { md: 0 } 
         }}
       >
-        {/* Mobile drawer */}
+        {/* Enhanced Mobile drawer with SwipeableDrawer */}
         {isMobile && (
-          <Drawer
+          <SwipeableDrawer
             variant="temporary"
             anchor="left"
             open={mobileDrawerOpen}
             onClose={handleMobileDrawerToggle}
+            onOpen={handleMobileDrawerToggle}
             ModalProps={{
-              keepMounted: true, // Better open performance on mobile.
+              keepMounted: true, // Better open performance on mobile
             }}
             sx={{
               '& .MuiDrawer-paper': { 
@@ -429,10 +467,10 @@ const Layout = () => {
             }}
           >
             {drawer}
-          </Drawer>
+          </SwipeableDrawer>
         )}
         
-        {/* Desktop drawer */}
+        {/* Desktop drawer - unchanged */}
         {!isMobile && (
           <Drawer
             variant="permanent"
@@ -447,18 +485,19 @@ const Layout = () => {
                 overflow: 'auto'
               },
             }}
+            open
           >
             {drawer}
           </Drawer>
         )}
       </Box>
 
-      {/* Main content */}
+      {/* Enhanced Main content with better mobile spacing */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: isMobile ? 1 : 3,
+          p: isMobile ? (isSmallMobile ? 2 : 2.5) : 3,
           width: { 
             md: `calc(100% - ${drawerWidth}px)`,
             xs: '100%'
@@ -467,13 +506,27 @@ const Layout = () => {
           direction: 'rtl',
           minHeight: '100vh',
           backgroundColor: 'background.default',
+          pt: isMobile ? '88px !important' : '88px !important', // Account for mobile AppBar
+          // Add more breathing room on mobile
+          ...(isMobile && {
+            '& > *': {
+              marginBottom: 3,
+            },
+            '& .MuiCard-root': {
+              marginBottom: 2,
+              padding: 2,
+            },
+            '& .MuiButton-root': {
+              marginBottom: 1,
+              minHeight: 48,
+            }
+          })
         }}
       >
-        <Toolbar />
         <Outlet />
       </Box>
 
-      {/* Profile Menu */}
+      {/* Profile Menu - enhanced for mobile */}
       <Menu
         anchorEl={anchorEl}
         id="primary-search-account-menu"
@@ -482,13 +535,27 @@ const Layout = () => {
         onClose={handleProfileMenuClose}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        sx={{ direction: 'rtl' }}
+        sx={{ 
+          direction: 'rtl',
+          '& .MuiMenuItem-root': {
+            minHeight: isMobile ? 48 : 'auto',
+            fontSize: isMobile ? '1rem' : '0.875rem',
+            px: isMobile ? 3 : 2,
+            py: isMobile ? 1.5 : 1
+          }
+        }}
       >
-        <MenuItem onClick={() => { handleProfileMenuClose(); navigate('/profile'); }}>
+        <MenuItem 
+          onClick={() => { 
+            handleProfileMenuClose(); 
+            navigate('/profile'); 
+          }}
+          sx={{ gap: 2 }}
+        >
           <AccountCircleIcon sx={{ mr: 1 }} />
           פרופיל
         </MenuItem>
-        <MenuItem onClick={handleLogout}>
+        <MenuItem onClick={handleLogout} sx={{ gap: 2 }}>
           <LogoutIcon sx={{ mr: 1 }} />
           יציאה
         </MenuItem>
