@@ -36,6 +36,7 @@ import {
   useTheme,
   useMediaQuery,
   Menu,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -51,6 +52,10 @@ import {
   Close as CloseIcon,
   PersonAdd as PersonAddIcon,
   MoreVert as MoreVertIcon,
+  Person as PersonIcon,
+  FiberManualRecord as OnlineIcon,
+  AccessTime as TimeIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
@@ -133,6 +138,10 @@ const EventManagement = () => {
   const [closureReason, setClosureReason] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
+  // Tracking overview state
+  const [trackingOverview, setTrackingOverview] = useState([]);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  
   // Mobile menu state
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuEvent, setMenuEvent] = useState(null);
@@ -177,7 +186,10 @@ const EventManagement = () => {
   useEffect(() => {
     loadEvents();
     loadAvailableVolunteers();
-  }, []);
+    if (hasCommandAccess()) {
+      loadTrackingOverview();
+    }
+  }, [user]);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -225,6 +237,40 @@ const EventManagement = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load tracking overview for command roles
+  const loadTrackingOverview = async () => {
+    setTrackingLoading(true);
+    try {
+      const response = await volunteerAssignmentAPI.getActiveTracking();
+      console.log('Active tracking response:', response);
+      
+      // Filter to show only assignments for the current user, exclude completed tasks, and exclude closed events
+      const userAssignments = (response || []).filter(tracking => {
+        const isCurrentUser = tracking.volunteer_id === user?.id;
+        const isNotCompleted = tracking.status !== 'task_completed' && !tracking.completion_time;
+        const isEventOpen = tracking.event_status && !['הסתיים', 'בוטל'].includes(tracking.event_status);
+        const shouldShow = isCurrentUser && isNotCompleted && isEventOpen;
+        
+        console.log(`Tracking ${tracking.volunteer_name}: volunteer_id=${tracking.volunteer_id}, current_user_id=${user?.id}, isCurrentUser=${isCurrentUser}, status=${tracking.status}, event_status=${tracking.event_status}, isEventOpen=${isEventOpen}, completion_time=${tracking.completion_time}, shouldShow=${shouldShow}`);
+        return shouldShow;
+      });
+      
+      console.log('Filtered user assignments:', userAssignments);
+      setTrackingOverview(userAssignments);
+    } catch (error) {
+      console.error('Error loading tracking overview:', error);
+      setTrackingOverview([]);
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  // Check if user has command role access
+  const hasCommandAccess = () => {
+    const allowedRoles = ['מוקדן', 'מפקד משל"ט', 'אדמין', 'מפקד יחידה', 'מפתח'];
+    return user && allowedRoles.includes(user.role);
   };
 
   const loadAvailableVolunteers = async () => {
@@ -494,6 +540,50 @@ const EventManagement = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  // Helper functions for tracking overview
+  const getStatusDisplayText = (status) => {
+    switch (status) {
+      case 'assigned': return 'הוקצה';
+      case 'departure': return 'בדרך למקום';
+      case 'arrived_at_scene': return 'במקום האירוע';
+      case 'task_completed': return 'הושלם';
+      default: return status;
+    }
+  };
+
+  const getStatusChipColor = (status) => {
+    switch (status) {
+      case 'assigned': return 'default';
+      case 'departure': return 'primary';
+      case 'arrived_at_scene': return 'warning';
+      case 'task_completed': return 'success';
+      default: return 'default';
+    }
+  };
+
+  const formatTrackingTime = (timestamp) => {
+    if (!timestamp) return 'לא זמין';
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString('he-IL', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit'
+      });
+    } catch (error) {
+      return 'זמן לא תקין';
+    }
+  };
+
+  // Combined refresh function
+  const handleRefreshAll = () => {
+    loadEvents();
+    if (hasCommandAccess()) {
+      loadTrackingOverview();
+    }
+  };
+
   // Mobile menu handlers
   const handleMobileMenuOpen = (event, eventData) => {
     setAnchorEl(event.currentTarget);
@@ -578,8 +668,8 @@ const EventManagement = () => {
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={loadEvents}
-            disabled={loading}
+            onClick={handleRefreshAll}
+            disabled={loading || trackingLoading}
           >
             רענן
           </Button>
@@ -596,6 +686,94 @@ const EventManagement = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Tracking Overview for Command Roles */}
+      {hasCommandAccess() && !trackingLoading && trackingOverview && trackingOverview.length > 0 && (
+        <Card sx={{ mb: 3, border: '2px solid #2196F3', borderRadius: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TrendingUpIcon color="primary" />
+                המשימות שלי ({trackingOverview.length})
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<RefreshIcon />}
+                onClick={loadTrackingOverview}
+                disabled={trackingLoading}
+              >
+                רענן מעקב
+              </Button>
+            </Box>
+            
+            <Grid container spacing={2}>
+              {trackingOverview.map((tracking, index) => (
+                <Grid item xs={12} sm={6} md={4} key={tracking.assignment_id || index}>
+                  <Card variant="outlined" sx={{ height: '100%', borderRadius: 2 }}>
+                    <CardContent sx={{ p: 2 }}>
+                      {/* User Info */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Avatar sx={{ bgcolor: '#2196F3', mr: 1, width: 32, height: 32 }}>
+                          <PersonIcon fontSize="small" />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                            {tracking.volunteer_name || 'לא זמין'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {tracking.volunteer_role || 'מתנדב'}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {/* Event Details */}
+                      <Box sx={{ mb: 2, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          {tracking.event_title || 'אירוע'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <LocationIcon fontSize="small" />
+                          {tracking.event_address || 'מיקום לא זמין'}
+                        </Typography>
+                      </Box>
+
+                      {/* Status and Times */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Chip
+                          label={getStatusDisplayText(tracking.status)}
+                          color={getStatusChipColor(tracking.status)}
+                          size="small"
+                          sx={{ alignSelf: 'flex-start' }}
+                        />
+                        
+                        {/* Timeline */}
+                        <Box sx={{ pl: 1 }}>
+                          {tracking.departure_time && (
+                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                              🚗 יציאה: {formatTrackingTime(tracking.departure_time)}
+                            </Typography>
+                          )}
+                          {tracking.arrival_time && (
+                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                              📍 הגעה: {formatTrackingTime(tracking.arrival_time)}
+                            </Typography>
+                          )}
+                          {tracking.completion_time && (
+                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              ✅ סיום: {formatTrackingTime(tracking.completion_time)}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>

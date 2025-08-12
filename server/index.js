@@ -259,25 +259,94 @@ io.on('connection', (socket) => {
       // Join admin room
       socket.join('admin-room');
       
-      // Broadcast updated online users list to all admins
-      const onlineUsersList = Array.from(onlineUsers.values());
-      io.to('admin-room').emit('online-users-updated', onlineUsersList);
-      
-      console.log(`👥 Online users count: ${onlineUsersList.length}`);
+      // Broadcast updated online users list to all admins with location data
+      try {
+        const onlineUsersList = Array.from(onlineUsers.values());
+        const userIds = onlineUsersList.map(user => user.id);
+        
+        if (userIds.length > 0) {
+          // Fetch location data for online users
+          const { data: usersWithLocation, error } = await supabaseAdmin
+            .from('users')
+            .select('id, last_latitude, last_longitude, last_location_update')
+            .in('id', userIds);
+          
+          if (!error && usersWithLocation) {
+            // Merge location data with online users info
+            const enrichedUsers = onlineUsersList.map(user => {
+              const locationData = usersWithLocation.find(u => u.id === user.id);
+              return {
+                ...user,
+                last_latitude: locationData?.last_latitude,
+                last_longitude: locationData?.last_longitude,
+                last_location_update: locationData?.last_location_update
+              };
+            });
+            
+            io.to('admin-room').emit('online-users-updated', enrichedUsers);
+            console.log(`👥 Online users count: ${enrichedUsers.length} (with location data)`);
+          } else {
+            // Fallback to users without location data
+            io.to('admin-room').emit('online-users-updated', onlineUsersList);
+            console.log(`👥 Online users count: ${onlineUsersList.length} (without location data)`);
+          }
+        } else {
+          io.to('admin-room').emit('online-users-updated', []);
+        }
+      } catch (locationError) {
+        console.error('Error fetching user locations:', locationError);
+        // Fallback to basic user data
+        const onlineUsersList = Array.from(onlineUsers.values());
+        io.to('admin-room').emit('online-users-updated', onlineUsersList);
+        console.log(`👥 Online users count: ${onlineUsersList.length} (fallback)`);
+      }
     } catch (error) {
       console.error('Error handling admin join:', error);
     }
   });
 
   // Handle manual request for online users
-  socket.on('get-online-users', () => {
+  socket.on('get-online-users', async () => {
     try {
       console.log('📡 Client requesting online users list');
+      
+      // Get online users with location data from database
       const onlineUsersList = Array.from(onlineUsers.values());
-      socket.emit('online-users-updated', onlineUsersList);
-      console.log(`📤 Sent ${onlineUsersList.length} online users to client`);
+      const userIds = onlineUsersList.map(user => user.id);
+      
+      if (userIds.length > 0) {
+        // Fetch location data for online users
+        const { data: usersWithLocation, error } = await supabaseAdmin
+          .from('users')
+          .select('id, last_latitude, last_longitude, last_location_update')
+          .in('id', userIds);
+        
+        if (!error && usersWithLocation) {
+          // Merge location data with online users info
+          const enrichedUsers = onlineUsersList.map(user => {
+            const locationData = usersWithLocation.find(u => u.id === user.id);
+            return {
+              ...user,
+              last_latitude: locationData?.last_latitude,
+              last_longitude: locationData?.last_longitude,
+              last_location_update: locationData?.last_location_update
+            };
+          });
+          
+          socket.emit('online-users-updated', enrichedUsers);
+          console.log(`📤 Sent ${enrichedUsers.length} online users with location data to client`);
+        } else {
+          // Fallback to users without location data
+          socket.emit('online-users-updated', onlineUsersList);
+          console.log(`📤 Sent ${onlineUsersList.length} online users without location data to client`);
+        }
+      } else {
+        socket.emit('online-users-updated', []);
+        console.log('📤 Sent empty online users list to client');
+      }
     } catch (error) {
       console.error('Error sending online users:', error);
+      socket.emit('online-users-updated', Array.from(onlineUsers.values()));
     }
   });
 

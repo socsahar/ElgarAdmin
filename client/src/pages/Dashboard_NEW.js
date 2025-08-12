@@ -37,6 +37,8 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import UserAvatar from '../components/UserAvatar';
+import TrackingButtons from '../components/TrackingButtons';
+import LiveTrackingMap from '../components/LiveTrackingMap';
 import { useSocket } from '../contexts/SocketContext';
 import api from '../utils/api';
 
@@ -56,6 +58,7 @@ function Dashboard() {
     activeCases: 0,
     recoveredCars: 0,
     pendingReports: 0,
+    userAssignments: []
   });
   const [activeTheftCases, setActiveTheftCases] = useState([]);
   const [closedTheftCases, setClosedTheftCases] = useState([]);
@@ -165,6 +168,28 @@ function Dashboard() {
       setActiveTheftCases(activeEvents.map(transformEvent));
       setClosedTheftCases(closedEvents.slice(0, 10).map(transformEvent)); // Show only last 10 closed cases
       
+      // Load user assignments for volunteers
+      let userAssignments = [];
+      if (user) {
+        try {
+          const { default: volunteerAssignmentAPI } = await import('../utils/volunteerAssignmentAPI');
+          userAssignments = await volunteerAssignmentAPI.getVolunteerAssignments(user.id);
+          console.log('Loaded user assignments:', userAssignments.length, 'for user:', user.id, 'role:', user.role);
+          console.log('Assignment details:', userAssignments);
+        } catch (error) {
+          console.error('Error loading user assignments:', error);
+        }
+      }
+
+      // Update statistics with user assignments
+      setStats({
+        pendingActionReports: 0, // TODO: Connect to action reports API
+        activeCases: activeEvents.length,
+        recoveredCars: closedEvents.length,
+        pendingReports: 0, // TODO: Connect to pending reports API
+        userAssignments: userAssignments
+      });
+      
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       // Set empty data on error
@@ -173,6 +198,7 @@ function Dashboard() {
         activeCases: 0,
         recoveredCars: 0,
         pendingReports: 0,
+        userAssignments: []
       });
       setActiveTheftCases([]);
       setClosedTheftCases([]);
@@ -535,6 +561,90 @@ function Dashboard() {
 
       {/* Main Content Area */}
       <Grid container spacing={4}>
+        {/* My Active Assignments - Show for users with assignments */}
+        {user && stats.userAssignments && stats.userAssignments.filter(a => 
+          ['assigned', 'accepted'].includes(a.status) && 
+          (!a.event?.event_status || !['הסתיים', 'בוטל'].includes(a.event.event_status))
+        ).length > 0 && (
+          <Grid item xs={12}>
+            <Card sx={{ 
+              borderRadius: 3, 
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+              border: '1px solid #e0e6ed',
+              mb: 3,
+              backgroundColor: '#fff8e1'
+            }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50' }}>
+                    🎯 המשימות שלי
+                  </Typography>
+                  <Chip 
+                    label={`${stats.userAssignments.filter(a => 
+                      ['assigned', 'accepted'].includes(a.status) && 
+                      (!a.event?.event_status || !['הסתיים', 'בוטל'].includes(a.event.event_status))
+                    ).length} משימות פעילות`} 
+                    sx={{ 
+                      backgroundColor: '#ff9800',
+                      color: 'white',
+                      fontWeight: 600
+                    }}
+                  />
+                </Box>
+                
+                {stats.userAssignments.filter(a => 
+                  ['assigned', 'accepted'].includes(a.status) && 
+                  (!a.event?.event_status || !['הסתיים', 'בוטל'].includes(a.event.event_status))
+                ).map((assignment) => (
+                  <Box key={assignment.id} sx={{ mb: 3 }}>
+                    <Card sx={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e0e6ed',
+                      borderRadius: 2 
+                    }}>
+                      <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50', mb: 1 }}>
+                              {assignment.event?.title || 'אירוע לא זמין'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <LocationOnIcon sx={{ fontSize: 16 }} />
+                              {assignment.event?.full_address || 'מיקום לא זמין'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              הוקצה ב: {new Date(assignment.assigned_at).toLocaleString('he-IL')}
+                            </Typography>
+                          </Box>
+                          <Chip 
+                            label={assignment.status === 'assigned' ? 'הוקצה' : 'אושר'}
+                            color={assignment.status === 'assigned' ? 'primary' : 'success'}
+                            size="small"
+                          />
+                        </Box>
+                        
+                        {/* Tracking Buttons Component */}
+                        <TrackingButtons 
+                          assignment={assignment}
+                          currentUser={user}
+                          onStatusUpdate={loadDashboardData}
+                        />
+                      </CardContent>
+                    </Card>
+                  </Box>
+                ))}
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {/* Live Tracking Map - Show ONLY for command and control roles */}
+        {user && ['מוקדן', 'מפקד משל"ט', 'פיקוד יחידה', 'אדמין', 'מפתח'].includes(user.role) && (
+          <Grid item xs={12}>
+            <LiveTrackingMap />
+          </Grid>
+        )}
+
         {/* Active Events - Full Width */}
         <Grid item xs={12}>
           <Card sx={{ 
