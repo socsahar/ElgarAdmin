@@ -41,6 +41,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../contexts/PermissionsContext';
 import UserAvatar from './UserAvatar';
+import Footer from './Footer';
 import { useThemeMode } from '../contexts/ThemeContext';
 
 // Enhanced responsive drawer widths
@@ -507,6 +508,9 @@ const Layout = () => {
           minHeight: '100vh',
           backgroundColor: 'background.default',
           pt: isMobile ? '88px !important' : '88px !important', // Account for mobile AppBar
+          pb: 0, // Remove bottom padding to let footer handle it
+          display: 'flex',
+          flexDirection: 'column',
           // Add more breathing room on mobile
           ...(isMobile && {
             '& > *': {
@@ -523,7 +527,10 @@ const Layout = () => {
           })
         }}
       >
-        <Outlet />
+        <Box sx={{ flex: 1 }}>
+          <Outlet />
+        </Box>
+        <Footer />
       </Box>
 
       {/* Profile Menu - enhanced for mobile */}

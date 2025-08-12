@@ -15,6 +15,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import { useAuth } from '../contexts/AuthContext';
+import Footer from '../components/Footer';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -48,6 +49,7 @@ const Login = () => {
       sx={{
         minHeight: '100vh',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -62,6 +64,7 @@ const Login = () => {
           width: '100%',
           borderRadius: 3,
           overflow: 'hidden',
+          mb: 2,
         }}
       >
         <Box
@@ -163,6 +166,20 @@ const Login = () => {
           </Box>
         </CardContent>
       </Paper>
+      
+      {/* Credits footer for login page */}
+      <Box
+        sx={{
+          mt: 'auto',
+          py: 2,
+          px: 2,
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: 2,
+          backdropFilter: 'blur(10px)',
+        }}
+      >
+        <Footer />
+      </Box>
     </Box>
   );
 };

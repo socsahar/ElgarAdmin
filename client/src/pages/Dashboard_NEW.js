@@ -411,7 +411,7 @@ function Dashboard() {
             border: '1px solid #e0e6ed',
             textAlign: 'center',
             height: '100%'
-          }}>
+          }} className="dashboard-stats-card">
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ 
                 width: 60, 
@@ -423,13 +423,13 @@ function Dashboard() {
                 justifyContent: 'center',
                 mx: 'auto',
                 mb: 2
-              }}>
+              }} className="dashboard-stats-icon">
                 <EventIcon sx={{ fontSize: 30, color: 'white' }} />
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }} className="dashboard-stats-number">
                 {stats.pendingActionReports}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" className="dashboard-stats-label">
                 דוחות פעולה ממתינים
               </Typography>
             </CardContent>
@@ -443,7 +443,7 @@ function Dashboard() {
             border: '1px solid #e0e6ed',
             textAlign: 'center',
             height: '100%'
-          }}>
+          }} className="dashboard-stats-card">
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ 
                 width: 60, 
@@ -455,13 +455,13 @@ function Dashboard() {
                 justifyContent: 'center',
                 mx: 'auto',
                 mb: 2
-              }}>
+              }} className="dashboard-stats-icon">
                 <AccessTimeIcon sx={{ fontSize: 30, color: 'white' }} />
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }} className="dashboard-stats-number">
                 {stats.activeCases}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" className="dashboard-stats-label">
                 אירועים פעילים
               </Typography>
             </CardContent>
@@ -475,7 +475,7 @@ function Dashboard() {
             border: '1px solid #e0e6ed',
             textAlign: 'center',
             height: '100%'
-          }}>
+          }} className="dashboard-stats-card">
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ 
                 width: 60, 
@@ -487,13 +487,13 @@ function Dashboard() {
                 justifyContent: 'center',
                 mx: 'auto',
                 mb: 2
-              }}>
+              }} className="dashboard-stats-icon">
                 <CheckCircleIcon sx={{ fontSize: 30, color: 'white' }} />
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }} className="dashboard-stats-number">
                 {stats.recoveredCars}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" className="dashboard-stats-label">
                 אירועים סגורים
               </Typography>
             </CardContent>
@@ -507,7 +507,7 @@ function Dashboard() {
             border: '1px solid #e0e6ed',
             textAlign: 'center',
             height: '100%'
-          }}>
+          }} className="dashboard-stats-card">
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ 
                 width: 60, 
@@ -519,13 +519,13 @@ function Dashboard() {
                 justifyContent: 'center',
                 mx: 'auto',
                 mb: 2
-              }}>
+              }} className="dashboard-stats-icon">
                 <PeopleIcon sx={{ fontSize: 30, color: 'white' }} />
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2c3e50', mb: 1 }} className="dashboard-stats-number">
                 {onlineUsers.length}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" className="dashboard-stats-label">
                 מתנדבים מחוברים
               </Typography>
             </CardContent>
@@ -543,8 +543,8 @@ function Dashboard() {
             border: '1px solid #e0e6ed',
             mb: 3
           }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <CardContent sx={{ p: 3 }} className="dashboard-active-events">
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }} className="active-events-title-row">
                 <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50' }}>
                   אירועים פעילים
                 </Typography>
@@ -573,13 +573,13 @@ function Dashboard() {
                 <Box>
                   {/* Table Header */}
                   <Box sx={{ 
-                    display: 'flex', 
+                    display: { xs: 'none', md: 'flex' }, // Hide on mobile, show on desktop
                     backgroundColor: '#f8f9fa', 
                     borderRadius: 1, 
                     p: 2, 
                     mb: 2,
                     border: '1px solid #e0e6ed'
-                  }}>
+                  }} className="dashboard-active-events-header">
                     <Typography variant="body2" color="text.secondary" sx={{ width: '15%', textAlign: 'center', fontWeight: 600 }}>
                       זמן אירוע
                     </Typography>
@@ -617,9 +617,14 @@ function Dashboard() {
                             transition: 'all 0.2s ease'
                           }
                         }}
+                        className="dashboard-active-events-row"
                       >
                         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          {/* Desktop Layout */}
+                          <Box sx={{ 
+                            display: { xs: 'none', md: 'flex' }, // Hide on mobile, show on desktop
+                            alignItems: 'center' 
+                          }}>
                             <Box sx={{ width: '15%', textAlign: 'center', fontSize: '0.875rem' }}>
                               <Typography variant="body2" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
                                 תאריך: {new Date(theftCase.createdAt).toLocaleDateString('he-IL', {
@@ -650,6 +655,75 @@ function Dashboard() {
                             <Typography variant="body2" sx={{ width: '15%', textAlign: 'center', fontSize: '0.875rem', color: '#3498db', fontWeight: 600 }}>
                               פעיל
                             </Typography>
+                          </Box>
+
+                          {/* Mobile Layout */}
+                          <Box sx={{ display: { xs: 'block', md: 'none' } }} className="dashboard-event-mobile">
+                            <Box className="dashboard-event-data">
+                              <Typography component="span" className="dashboard-event-label">
+                                זמן:
+                              </Typography>
+                              <Box className="dashboard-event-value dashboard-event-time">
+                                <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                                  תאריך: {new Date(theftCase.createdAt).toLocaleDateString('he-IL', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric'
+                                  })}
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+                                  שעה: {new Date(theftCase.createdAt).toLocaleTimeString('he-IL', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </Typography>
+                              </Box>
+                            </Box>
+
+                            <Box className="dashboard-event-data">
+                              <Typography component="span" className="dashboard-event-label">
+                                כותרת:
+                              </Typography>
+                              <Typography component="div" className="dashboard-event-value">
+                                {theftCase.title || 'כותרת לא זמינה'}
+                              </Typography>
+                            </Box>
+
+                            <Box className="dashboard-event-data">
+                              <Typography component="span" className="dashboard-event-label">
+                                מיקום:
+                              </Typography>
+                              <Typography component="div" className="dashboard-event-value">
+                                {theftCase.location || 'מיקום לא זמין'}
+                              </Typography>
+                            </Box>
+
+                            <Box className="dashboard-event-data">
+                              <Typography component="span" className="dashboard-event-label">
+                                מס' רכב:
+                              </Typography>
+                              <Typography component="div" className="dashboard-event-value">
+                                {theftCase.licensePlate || 'רישוי לא זמין'}
+                              </Typography>
+                            </Box>
+
+                            <Box className="dashboard-event-data">
+                              <Typography component="span" className="dashboard-event-label">
+                                פרטים:
+                              </Typography>
+                              <Typography component="div" className="dashboard-event-value">
+                                {theftCase.description || 'תיאור לא זמין'}
+                              </Typography>
+                            </Box>
+
+                            <Box className="dashboard-event-data">
+                              <Typography component="span" className="dashboard-event-label">
+                                סטטוס:
+                              </Typography>
+                              <Typography component="div" className="dashboard-event-status">
+                                פעיל
+                              </Typography>
+                            </Box>
                           </Box>
                         </CardContent>
                       </Card>
@@ -812,7 +886,7 @@ function Dashboard() {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
                 border: '1px solid #e0e6ed'
               }}>
-                <CardContent sx={{ p: 3 }}>
+                <CardContent sx={{ p: 3 }} className="online-users-mobile">
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50' }}>
                       מתנדבים מחוברים
@@ -935,6 +1009,7 @@ function Dashboard() {
                                 }
                               }}
                               onClick={() => handleUserClick(onlineUser)}
+                              className="online-user-item-mobile"
                             >
                               <ListItemIcon>
                                 <Box sx={{ position: 'relative' }}>

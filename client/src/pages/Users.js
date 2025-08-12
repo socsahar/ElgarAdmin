@@ -178,7 +178,7 @@ const Users = () => {
   const handleCreateUser = async () => {
     try {
       // Comprehensive validation
-      const requiredFields = ['username', 'full_name', 'phone_number', 'position', 'role'];
+      const requiredFields = ['username', 'full_name', 'phone_number', 'position', 'role', 'photo_url'];
       // Only require ID number if user has permission to see/edit it
       if (canViewIdNumbers()) {
         requiredFields.push('id_number');
@@ -186,7 +186,7 @@ const Users = () => {
       
       const missingFields = requiredFields.filter(field => !formData[field]);
       if (missingFields.length > 0) {
-        setError('נא למלא את כל השדות הנדרשים');
+        setError('נא למלא את כל השדות הנדרשים כולל תמונת פרופיל');
         return;
       }
 
@@ -1004,14 +1004,22 @@ const Users = () => {
             
             {/* Profile Photo Upload */}
             <Grid item xs={12}>
-              <Paper sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 2 }}>
+              <Paper sx={{ 
+                p: 2, 
+                border: '2px solid #d32f2f', 
+                borderRadius: 2,
+                bgcolor: '#fff5f5'
+              }}>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold', color: '#d32f2f' }}>
+                  * תמונת פרופיל נדרשת
+                </Typography>
                 <ImageUpload
                   value={formData.photo_url}
                   onChange={(photoUrl) => {
                     console.log('📸 ImageUpload onChange called with:', photoUrl);
                     setFormData({ ...formData, photo_url: photoUrl });
                   }}
-                  label="תמונת פרופיל (אופציונלי)"
+                  label="תמונת פרופיל (חובה)"
                   userId={formData.id_number}
                 />
               </Paper>
