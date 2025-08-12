@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
+    setLoading(true); // Show loading during login
     try {
       const response = await api.post('/api/auth/login', { username, password });
       console.log('AuthContext: Login response:', response.data);
@@ -73,10 +74,13 @@ export const AuthProvider = ({ children }) => {
       }
       
       throw new Error(message);
+    } finally {
+      setLoading(false); // Hide loading after login attempt
     }
   };
 
   const logout = async () => {
+    setLoading(true); // Show loading during logout
     try {
       await api.post('/api/auth/logout');
     } catch (error) {
@@ -86,6 +90,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('token');
       delete api.defaults.headers.common['Authorization'];
       setUser(null);
+      setLoading(false); // Hide loading after logout
     }
   };
 

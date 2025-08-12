@@ -88,6 +88,8 @@ function App() {
   const { user, loading } = useAuth();
   const { connected, connecting } = useSocket();
   const [showConnectionAlert, setShowConnectionAlert] = useState(false);
+  const [navigationLoading, setNavigationLoading] = useState(false);
+  const location = useLocation();
 
   // Monitor socket connection status
   useEffect(() => {
@@ -98,9 +100,21 @@ function App() {
     }
   }, [user, connected, connecting]);
 
-  // Show initial loading spinner
-  if (loading) {
-    return <LoadingSpinner message="טוען מערכת אלגר..." />;
+  // Show loading on route changes
+  useEffect(() => {
+    if (user) {
+      setNavigationLoading(true);
+      const timer = setTimeout(() => {
+        setNavigationLoading(false);
+      }, 500); // Short delay to show loading for navigation
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname, user]);
+
+  // Show initial loading spinner or navigation loading
+  if (loading || navigationLoading) {
+    return <LoadingSpinner message={loading ? "טוען מערכת אלגר..." : "טוען עמוד..."} />;
   }
 
   return (

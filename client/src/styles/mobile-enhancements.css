@@ -311,6 +311,15 @@
   footer {
     margin-top: auto !important;
     flex-shrink: 0 !important;
+    padding: 24px 16px 20px 16px !important;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    border-top: 2px solid #e9ecef !important;
+    position: relative !important;
+  }
+  
+  footer::before {
+    background: linear-gradient(90deg, transparent, #007bff, transparent) !important;
+    height: 2px !important;
   }
   
   .credits-footer {
@@ -318,6 +327,18 @@
     backdrop-filter: blur(10px) !important;
     border-radius: 12px 12px 0 0 !important;
     box-shadow: 0 -2px 12px rgba(0,0,0,0.1) !important;
+  }
+  
+  /* Footer typography improvements */
+  footer .MuiTypography-root {
+    text-align: center !important;
+    line-height: 1.5 !important;
+  }
+  
+  footer .MuiDivider-root {
+    margin: 12px auto !important;
+    max-width: 200px !important;
+    opacity: 0.4 !important;
   }
 }
 

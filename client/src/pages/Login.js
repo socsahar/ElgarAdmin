@@ -15,7 +15,6 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import { useAuth } from '../contexts/AuthContext';
-import Footer from '../components/Footer';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -53,8 +52,9 @@ const Login = () => {
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: 2,
+        padding: { xs: 1, sm: 2 },
         direction: 'rtl',
+        gap: 2,
       }}
     >
       <Paper
@@ -64,7 +64,6 @@ const Login = () => {
           width: '100%',
           borderRadius: 3,
           overflow: 'hidden',
-          mb: 2,
         }}
       >
         <Box
@@ -76,15 +75,34 @@ const Login = () => {
           }}
         >
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-            <img 
-              src="/img/logo.png" 
-              alt="לוגו אלגר" 
-              style={{ 
-                height: '60px', 
-                width: 'auto',
-                filter: 'brightness(0) invert(1)' // Makes logo white on dark background
+            <Box
+              sx={{
+                width: 100,
+                height: 100,
+                backgroundColor: 'white',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                padding: 0.5,
               }}
-            />
+            >
+              <img 
+                src="/img/logo.png" 
+                alt="לוגו אלגר" 
+                style={{ 
+                  height: '92px', 
+                  width: 'auto',
+                  maxWidth: '95px',
+                  objectFit: 'contain'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = '<div style="color: #1976d2; font-size: 40px; font-weight: bold;">E</div>';
+                }}
+              />
+            </Box>
           </Box>
           <Typography variant="h4" component="h1" fontWeight="bold">
             Elgar Admin
@@ -170,15 +188,54 @@ const Login = () => {
       {/* Credits footer for login page */}
       <Box
         sx={{
-          mt: 'auto',
+          mt: 2,
           py: 2,
-          px: 2,
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          px: 3,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderRadius: 2,
           backdropFilter: 'blur(10px)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          maxWidth: 400,
+          width: '100%',
         }}
       >
-        <Footer />
+        <Box
+          sx={{
+            textAlign: 'center',
+            direction: 'rtl',
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.5,
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              color: 'text.primary',
+              lineHeight: 1.4,
+              mb: 0.5,
+            }}
+          >
+            <Box component="span" sx={{ fontSize: '0.9rem', mr: 0.5 }}>©</Box>
+            מערכת זו נבנתה ונכתבה על ידי סהר מלול - כל הזכויות שמורות
+          </Typography>
+          
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: '0.7rem',
+              color: 'text.secondary',
+              opacity: 0.8,
+              fontStyle: 'italic',
+            }}
+          >
+            © {new Date().getFullYear()} Sahar Malul. All Rights Reserved.
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );
