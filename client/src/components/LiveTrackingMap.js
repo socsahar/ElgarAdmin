@@ -87,12 +87,16 @@ const customStyles = `
   }
 `;
 
-// Inject styles
+// Inject styles only once
 if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.type = 'text/css';
-  styleSheet.innerText = customStyles;
-  document.head.appendChild(styleSheet);
+  // Check if styles are already injected to prevent duplicates
+  if (!document.getElementById('live-tracking-map-styles')) {
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'live-tracking-map-styles';
+    styleSheet.type = 'text/css';
+    styleSheet.innerText = customStyles;
+    document.head.appendChild(styleSheet);
+  }
 }
 
 // Fix for default markers
@@ -340,38 +344,52 @@ const LiveTrackingMap = () => {
       }
     }, [map, focusTarget, onFocusComplete]);
 
-    // Continuous tracking of highlighted user with debouncing
+    // Continuous tracking of highlighted user with stable debouncing
     useEffect(() => {
-      if (highlightedUser && usersWithLocations && usersWithLocations.length > 0) {
-        const highlightedUserData = usersWithLocations.find(u => u.volunteer_id === highlightedUser);
-        
-        if (highlightedUserData && highlightedUserData.latitude && highlightedUserData.longitude) {
-          const userLat = highlightedUserData.latitude;
-          const userLng = highlightedUserData.longitude;
-          
-          // Check if user position actually changed significantly
-          const lastPos = lastTrackedPosition.current;
-          let shouldUpdate = false;
-          
-          if (!lastPos) {
-            shouldUpdate = true;
-          } else {
-            const latDiff = Math.abs(lastPos.lat - userLat);
-            const lngDiff = Math.abs(lastPos.lng - userLng);
-            // Update if user moved more than ~10 meters
-            shouldUpdate = latDiff > 0.0001 || lngDiff > 0.0001;
-          }
-          
-          if (shouldUpdate) {
-            map.setView([userLat, userLng], Math.max(map.getZoom(), 15), {
+      if (!highlightedUser || !usersWithLocations || usersWithLocations.length === 0) {
+        return;
+      }
+
+      const highlightedUserData = usersWithLocations.find(u => u.volunteer_id === highlightedUser);
+      
+      if (!highlightedUserData || !highlightedUserData.latitude || !highlightedUserData.longitude) {
+        return;
+      }
+
+      const userLat = highlightedUserData.latitude;
+      const userLng = highlightedUserData.longitude;
+      
+      // Check if user position actually changed significantly
+      const lastPos = lastTrackedPosition.current;
+      let shouldUpdate = false;
+      
+      if (!lastPos) {
+        shouldUpdate = true;
+      } else {
+        const latDiff = Math.abs(lastPos.lat - userLat);
+        const lngDiff = Math.abs(lastPos.lng - userLng);
+        // Only update if user moved more than ~20 meters to prevent excessive updates
+        shouldUpdate = latDiff > 0.0002 || lngDiff > 0.0002;
+      }
+      
+      if (shouldUpdate) {
+        // Use a timeout to debounce rapid updates
+        const timeoutId = setTimeout(() => {
+          try {
+            const currentZoom = map.getZoom();
+            map.setView([userLat, userLng], Math.max(currentZoom, 14), {
               animate: true,
-              duration: 0.5
+              duration: 0.8
             });
             
             // Update the last tracked position
             lastTrackedPosition.current = { lat: userLat, lng: userLng };
+          } catch (error) {
+            console.error('Error updating map view:', error);
           }
-        }
+        }, 500); // 500ms debounce
+        
+        return () => clearTimeout(timeoutId);
       }
     }, [map, highlightedUser, usersWithLocations]);
 
@@ -533,7 +551,7 @@ const LiveTrackingMap = () => {
     // Increase refresh interval to 2 minutes to prevent interference with real-time updates
     const interval = setInterval(loadActiveTracking, 120000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadActiveTracking]);
 
   // Removed excessive debug logging that was causing performance issues
 
@@ -692,7 +710,7 @@ const LiveTrackingMap = () => {
     setCurrentTab(newValue);
   }, []);
 
-  // Get all users with locations for map - optimized memoization to prevent unnecessary recalculations
+  // Get all users with locations for map - extra stable memoization
   const usersWithLocations = useMemo(() => {
     const users = [];
     const trackingUserIds = new Set(activeTracking.map(t => t.volunteer_id));
@@ -775,14 +793,7 @@ const LiveTrackingMap = () => {
     });
     
     return users;
-  }, [
-    onlineUsers.length, 
-    activeTracking.length, 
-    lastKnownUsers.size,
-    // Add user IDs to dependencies for more stable comparison
-    onlineUsers.map(u => u.id).join(','),
-    activeTracking.map(t => t.volunteer_id).join(',')
-  ]);
+  }, [onlineUsers, activeTracking]); // Simplified dependencies - let it recalculate more often but safely
 
   // Update last known users in a separate effect to avoid infinite loops
   useEffect(() => {
@@ -1399,79 +1410,100 @@ const LiveTrackingMap = () => {
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     
-                    {usersWithLocations.map((userLocation) => (
-                      <Marker
-                        key={userLocation.id}
-                        position={[userLocation.latitude, userLocation.longitude]}
-                        icon={createProfilePhotoIcon(
-                          userLocation.photo_url,
-                          userLocation.type === 'tracking' ? userLocation.status : userLocation.type,
-                          highlightedUser === userLocation.volunteer_id,
-                          userLocation.isLive
-                        )}
-                      >
-                        <Popup>
-                          <div className="user-popup">
-                            <h4>{userLocation.name}</h4>
-                            <div 
-                              className="role-chip"
-                              style={{ backgroundColor: getRoleColor(userLocation.role) }}
+                    {/* User Markers with error handling */}
+                    {usersWithLocations
+                      .filter(userLocation => {
+                        // Optimized validation to prevent crashes
+                        if (!userLocation?.latitude || !userLocation?.longitude) return false;
+                        
+                        const lat = userLocation.latitude;
+                        const lng = userLocation.longitude;
+                        
+                        return !isNaN(lat) && !isNaN(lng) &&
+                               lat >= -90 && lat <= 90 &&
+                               lng >= -180 && lng <= 180;
+                      })
+                      .map((userLocation) => {
+                        try {
+                          return (
+                            <Marker
+                              key={userLocation.id}
+                              position={[userLocation.latitude, userLocation.longitude]}
+                              icon={createProfilePhotoIcon(
+                                userLocation.photo_url,
+                                userLocation.type === 'tracking' ? userLocation.status : userLocation.type,
+                                highlightedUser === userLocation.volunteer_id,
+                                userLocation.isLive
+                              )}
                             >
-                              {userLocation.role}
-                            </div>
-                            <div className="info-item">
-                              <span 
-                                className={`status-indicator ${userLocation.isLive ? (userLocation.type === 'online' ? 'status-online' : 'status-tracking') : 'status-offline'}`}
-                              ></span>
-                              {userLocation.isLive ? 
-                                (userLocation.type === 'online' ? 'מחובר למערכת' : getStatusText(userLocation.status)) :
-                                'מנותק זמנית (מיקום אחרון)'
-                              }
-                            </div>
-                            
-                            {userLocation.phone && (
-                              <div className="info-item">📞 {userLocation.phone}</div>
-                            )}
-                            {!userLocation.phone && (
-                              <div className="info-item" style={{ color: 'orange' }}>📞 לא זמין</div>
-                            )}
-                            
-                            {/* Vehicle Information */}
-                            {userLocation.has_car && (
-                              <div className="info-item vehicle-info">
-                                🚗 {userLocation.car_type && `${userLocation.car_type}`}
-                                {userLocation.license_plate && ` | ${userLocation.license_plate}`}
-                                {userLocation.car_color && ` | ${userLocation.car_color}`}
-                              </div>
-                            )}
-                            {userLocation.has_car === false && (
-                              <div className="info-item" style={{ color: 'orange' }}>🚗 אין רכב</div>
-                            )}
-                            
-                            {userLocation.event && (
-                              <>
-                                <div className="info-item">
-                                  <strong>משימה:</strong> {userLocation.event.title}
-                                </div>
-                                <div className="info-item">
-                                  <strong>כתובת:</strong> {userLocation.event.full_address}
-                                </div>
-                                {userLocation.departure_time && (
-                                  <div className="info-item">
-                                    <strong>יצא:</strong> {formatTime(userLocation.departure_time)}
+                              <Popup>
+                                <div className="user-popup">
+                                  <h4>{userLocation.name}</h4>
+                                  <div 
+                                    className="role-chip"
+                                    style={{ backgroundColor: getRoleColor(userLocation.role) }}
+                                  >
+                                    {userLocation.role}
                                   </div>
-                                )}
-                                {userLocation.arrival_time && (
                                   <div className="info-item">
-                                    <strong>הגיע:</strong> {formatTime(userLocation.arrival_time)}
+                                    <span 
+                                      className={`status-indicator ${userLocation.isLive ? (userLocation.type === 'online' ? 'status-online' : 'status-tracking') : 'status-offline'}`}
+                                    ></span>
+                                    {userLocation.isLive ? 
+                                      (userLocation.type === 'online' ? 'מחובר למערכת' : getStatusText(userLocation.status)) :
+                                      'מנותק זמנית (מיקום אחרון)'
+                                    }
                                   </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </Popup>
-                      </Marker>
-                    ))}
+                                  
+                                  {userLocation.phone && (
+                                    <div className="info-item">📞 {userLocation.phone}</div>
+                                  )}
+                                  {!userLocation.phone && (
+                                    <div className="info-item" style={{ color: 'orange' }}>📞 לא זמין</div>
+                                  )}
+                                  
+                                  {/* Vehicle Information */}
+                                  {userLocation.has_car && (
+                                    <div className="info-item vehicle-info">
+                                      🚗 {userLocation.car_type && `${userLocation.car_type}`}
+                                      {userLocation.license_plate && ` | ${userLocation.license_plate}`}
+                                      {userLocation.car_color && ` | ${userLocation.car_color}`}
+                                    </div>
+                                  )}
+                                  {userLocation.has_car === false && (
+                                    <div className="info-item" style={{ color: 'orange' }}>🚗 אין רכב</div>
+                                  )}
+                                  
+                                  {userLocation.event && (
+                                    <>
+                                      <div className="info-item">
+                                        <strong>משימה:</strong> {userLocation.event.title}
+                                      </div>
+                                      <div className="info-item">
+                                        <strong>כתובת:</strong> {userLocation.event.full_address}
+                                      </div>
+                                      {userLocation.departure_time && (
+                                        <div className="info-item">
+                                          <strong>יצא:</strong> {formatTime(userLocation.departure_time)}
+                                        </div>
+                                      )}
+                                      {userLocation.arrival_time && (
+                                        <div className="info-item">
+                                          <strong>הגיע:</strong> {formatTime(userLocation.arrival_time)}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </Popup>
+                            </Marker>
+                          );
+                        } catch (error) {
+                          console.error('Error rendering marker for user:', userLocation.id, error);
+                          // Skip rendering this marker instead of crashing the entire map
+                          return null;
+                        }
+                      })}
                     
                     {/* Event Flag Markers */}
                     {activeEvents
