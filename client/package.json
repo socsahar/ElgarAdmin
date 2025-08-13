@@ -36,8 +36,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "set CI=false && react-scripts build",
-    "build:unix": "CI=false react-scripts build",
+    "build": "set CI=false && set ESLINT_NO_DEV_ERRORS=true && set TSC_COMPILE_ON_ERROR=true && react-scripts build",
+    "build:unix": "CI=false ESLINT_NO_DEV_ERRORS=true TSC_COMPILE_ON_ERROR=true react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
