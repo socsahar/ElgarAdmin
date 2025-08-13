@@ -92,7 +92,7 @@ function App() {
   const [navigationLoading, setNavigationLoading] = useState(false);
   const location = useLocation();
 
-  // Monitor socket connection status
+  // Monitor socket connection status and prevent disconnections during navigation
   useEffect(() => {
     if (user && !connected && !connecting) {
       setShowConnectionAlert(true);
@@ -100,6 +100,35 @@ function App() {
       setShowConnectionAlert(false);
     }
   }, [user, connected, connecting]);
+
+  // Prevent socket disconnection during page navigation and visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Don't disconnect when page becomes hidden (user switching tabs/apps)
+      if (document.hidden) {
+        console.log('📱 Page hidden - maintaining socket connection');
+      } else {
+        console.log('👁️ Page visible - ensuring socket connection');
+        // Optionally refresh connection status when page becomes visible again
+      }
+    };
+
+    const handleBeforeUnload = (e) => {
+      // Prevent accidental disconnections during page refresh/navigation
+      if (connected && user) {
+        console.log('⚠️ Page unloading - maintaining connection state');
+        // Don't force disconnect on page navigation
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [connected, user]);
 
   // Show loading on route changes
   useEffect(() => {

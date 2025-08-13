@@ -305,6 +305,7 @@ const LiveTrackingMap = () => {
   const [highlightedUser, setHighlightedUser] = useState(null);
   const [highlightTimeout, setHighlightTimeout] = useState(null);
   const [lastKnownUsers, setLastKnownUsers] = useState(new Map()); // Keep track of last known positions
+  const mapRef = useRef(null); // Reference to map for performance optimizations
   
   // Flag movement confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -318,7 +319,7 @@ const LiveTrackingMap = () => {
   });
 
   // Map Focus Controller Component with persistent tracking
-  const MapFocusController = ({ focusTarget, onFocusComplete, highlightedUser, usersWithLocations }) => {
+  const MapFocusController = ({ focusTarget, onFocusComplete, highlightedUser, usersWithLocations, lastKnownUsers }) => {
     const map = useMap();
     const lastTrackedPosition = useRef(null);
 
@@ -344,20 +345,38 @@ const LiveTrackingMap = () => {
       }
     }, [map, focusTarget, onFocusComplete]);
 
-    // Continuous tracking of highlighted user with stable debouncing
+    // Enhanced continuous tracking with better error handling and user retention
     useEffect(() => {
       if (!highlightedUser || !usersWithLocations || usersWithLocations.length === 0) {
         return;
       }
 
-      const highlightedUserData = usersWithLocations.find(u => u.volunteer_id === highlightedUser);
+      // Find the highlighted user with better fallback logic
+      let highlightedUserData = usersWithLocations.find(u => u.volunteer_id === highlightedUser);
+      
+      // If user not found in current list, check lastKnownUsers as fallback
+      if (!highlightedUserData) {
+        const fallbackUser = Array.from(lastKnownUsers.values()).find(u => u.volunteer_id === highlightedUser);
+        if (fallbackUser) {
+          highlightedUserData = fallbackUser;
+          console.log('📍 Using fallback position for user:', fallbackUser.name);
+        }
+      }
       
       if (!highlightedUserData || !highlightedUserData.latitude || !highlightedUserData.longitude) {
+        console.log('⚠️ No valid position data for highlighted user:', highlightedUser);
         return;
       }
 
       const userLat = highlightedUserData.latitude;
       const userLng = highlightedUserData.longitude;
+      
+      // Enhanced coordinate validation
+      if (isNaN(userLat) || isNaN(userLng) || userLat === 0 || userLng === 0 ||
+          userLat < -90 || userLat > 90 || userLng < -180 || userLng > 180) {
+        console.log('⚠️ Invalid coordinates for user:', highlightedUserData.name, userLat, userLng);
+        return;
+      }
       
       // Check if user position actually changed significantly
       const lastPos = lastTrackedPosition.current;
@@ -391,7 +410,7 @@ const LiveTrackingMap = () => {
         
         return () => clearTimeout(timeoutId);
       }
-    }, [map, highlightedUser, usersWithLocations]);
+    }, [map, highlightedUser, usersWithLocations, lastKnownUsers]);
 
     // Clear tracking position when user is deselected
     useEffect(() => {
@@ -613,14 +632,42 @@ const LiveTrackingMap = () => {
     }
   }, []);
 
-  // Initialize component and set up refresh interval
+  // Initialize component and set up refresh interval with performance optimization
   useEffect(() => {
     loadActiveTracking();
     
-    // Increase refresh interval to 2 minutes to prevent interference with real-time updates
-    const interval = setInterval(loadActiveTracking, 120000);
+    // Performance optimization: adjust refresh interval based on user count
+    const getRefreshInterval = () => {
+      if (onlineUsers.length > 50) return 180000; // 3 minutes for many users
+      if (onlineUsers.length > 30) return 150000; // 2.5 minutes for moderate users
+      return 120000; // 2 minutes for few users
+    };
+    
+    const interval = setInterval(loadActiveTracking, getRefreshInterval());
     return () => clearInterval(interval);
-  }, [loadActiveTracking]);
+  }, [loadActiveTracking, onlineUsers.length]);
+
+  // Throttled map update handler for performance optimization
+  const throttledMapUpdate = useCallback(
+    debounce(() => {
+      // Gentle map update without forced re-render
+      if (mapRef.current) {
+        try {
+          mapRef.current.invalidateSize();
+        } catch (error) {
+          console.warn('Map update warning:', error);
+        }
+      }
+    }, onlineUsers.length > 20 ? 2000 : 1000), // Longer throttling with many users
+    [onlineUsers.length]
+  );
+
+  // Performance monitoring effect
+  useEffect(() => {
+    if (onlineUsers.length > 30) {
+      console.log(`🚦 Performance mode: ${onlineUsers.length} users online, using optimized rendering`);
+    }
+  }, [onlineUsers.length]);
 
   // Function to focus on a user when clicked in the list - toggle behavior with persistent focus
   const focusOnUser = useCallback((userItem) => {
@@ -711,164 +758,207 @@ const LiveTrackingMap = () => {
     setCurrentTab(newValue);
   }, []);
 
-  // Get all users with locations for map - extra stable memoization
+  // Enhanced user locations with performance optimizations for many users
   const usersWithLocations = useMemo(() => {
     const users = [];
     const trackingUserIds = new Set(activeTracking.map(t => t.volunteer_id));
     
+    // Performance optimization: limit the number of users shown on map to prevent overwhelming
+    const MAX_MAP_USERS = 50; // Limit to 50 users to maintain performance
+    let userCount = 0;
+    
     // Add online users (if they have last known location and are not currently tracking)
     onlineUsers.forEach(onlineUser => {
+      if (userCount >= MAX_MAP_USERS) return; // Performance limit
+      
       if (onlineUser.last_latitude && onlineUser.last_longitude && !trackingUserIds.has(onlineUser.id)) {
-        const userObj = {
-          id: `online_${onlineUser.id}`,
-          volunteer_id: onlineUser.id,
-          name: onlineUser.full_name || onlineUser.username || 'משתמש',
-          role: onlineUser.role,
-          phone: onlineUser.phone_number,
-          photo_url: onlineUser.photo_url,
-          latitude: parseFloat(onlineUser.last_latitude),
-          longitude: parseFloat(onlineUser.last_longitude),
-          status: 'online',
-          type: 'online',
-          lastSeen: new Date(),
-          isLive: true,
-          // Vehicle information
-          has_car: onlineUser.has_car,
-          car_type: onlineUser.car_type,
-          license_plate: onlineUser.license_plate,
-          car_color: onlineUser.car_color
-        };
+        const lat = parseFloat(onlineUser.last_latitude);
+        const lng = parseFloat(onlineUser.last_longitude);
         
-        // Only add if coordinates are valid
-        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
+        // Only add if coordinates are valid - enhanced validation
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          const userObj = {
+            id: `online_${onlineUser.id}`,
+            volunteer_id: onlineUser.id,
+            name: onlineUser.full_name || onlineUser.username || 'משתמש',
+            role: onlineUser.role,
+            phone: onlineUser.phone_number,
+            photo_url: onlineUser.photo_url,
+            latitude: lat,
+            longitude: lng,
+            status: 'online',
+            type: 'online',
+            lastSeen: new Date(),
+            isLive: true,
+            // Vehicle information
+            has_car: onlineUser.has_car,
+            car_type: onlineUser.car_type,
+            license_plate: onlineUser.license_plate,
+            car_color: onlineUser.car_color
+          };
+          
           users.push(userObj);
+          userCount++;
         }
       }
     });
     
-    // Add tracking users (priority over online status)
+    // Add tracking users (priority over online status) - these always get priority
     activeTracking.forEach(tracking => {
       if (tracking.current_latitude && tracking.current_longitude) {
-        const userObj = {
-          id: `tracking_${tracking.assignment_id}`,
-          volunteer_id: tracking.volunteer_id,
-          name: tracking.volunteer?.full_name || tracking.volunteer?.username || 'מתנדב',
-          role: tracking.volunteer?.role,
-          phone: tracking.volunteer?.phone_number,
-          photo_url: tracking.volunteer?.photo_url,
-          latitude: parseFloat(tracking.current_latitude),
-          longitude: parseFloat(tracking.current_longitude),
-          status: tracking.status,
-          type: 'tracking',
-          lastSeen: new Date(),
-          isLive: true,
-          event: tracking.event,
-          departure_time: tracking.departure_time,
-          arrival_time: tracking.arrival_time
-        };
+        const lat = parseFloat(tracking.current_latitude);
+        const lng = parseFloat(tracking.current_longitude);
         
-        // Only add if coordinates are valid
-        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
+        // Enhanced coordinate validation for tracking users
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          const userObj = {
+            id: `tracking_${tracking.assignment_id}`,
+            volunteer_id: tracking.volunteer_id,
+            name: tracking.volunteer?.full_name || tracking.volunteer?.username || 'מתנדב',
+            role: tracking.volunteer?.role,
+            phone: tracking.volunteer?.phone_number,
+            photo_url: tracking.volunteer?.photo_url,
+            latitude: lat,
+            longitude: lng,
+            status: tracking.status,
+            type: 'tracking',
+            lastSeen: new Date(),
+            isLive: true,
+            event: tracking.event,
+            departure_time: tracking.departure_time,
+            arrival_time: tracking.arrival_time
+          };
+          
           users.push(userObj);
         }
       }
     });
     
-    // Add users from last known positions if they're not currently online (keep them for 5 minutes)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    // Extended grace period: keep users for 10 minutes instead of 5 (reduces disappearing users)
+    // But limit offline users to prevent performance issues
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const currentUserIds = new Set([
       ...onlineUsers.map(u => u.id),
       ...activeTracking.map(t => t.volunteer_id)
     ]);
     
+    let offlineUserCount = 0;
+    const MAX_OFFLINE_USERS = 20; // Limit offline users for performance
+    
     lastKnownUsers.forEach((lastUser, userId) => {
-      if (!currentUserIds.has(userId) && lastUser.lastSeen > fiveMinutesAgo) {
+      if (offlineUserCount >= MAX_OFFLINE_USERS) return; // Performance limit
+      
+      if (!currentUserIds.has(userId) && lastUser.lastSeen > tenMinutesAgo) {
         // User is temporarily offline but was seen recently, keep showing with "offline" status
         const offlineUser = {
           ...lastUser,
           isLive: false,
-          status: 'offline'
+          status: 'temporarily_disconnected'
         };
         users.push(offlineUser);
+        offlineUserCount++;
       }
     });
-    
-    return users;
-  }, [onlineUsers, activeTracking]); // Simplified dependencies - let it recalculate more often but safely
 
-  // Update last known users in a separate effect to avoid infinite loops
+    // Log performance info when there are many users
+    if (onlineUsers.length > 30) {
+      console.log(`📊 Performance mode: ${onlineUsers.length} online users, showing ${userCount} on map (limit: ${MAX_MAP_USERS})`);
+    }
+
+    return users;
+  }, [onlineUsers, activeTracking, lastKnownUsers]); // Added lastKnownUsers for better stability  // Enhanced user tracking with better stability and reduced disappearing users
   useEffect(() => {
     const currentUsers = new Map();
     
-    // Collect current users
+    // Only process if we have valid data to prevent unnecessary updates
+    if (!onlineUsers || !Array.isArray(onlineUsers)) {
+      return;
+    }
+    
+    // Collect current users with enhanced validation
     onlineUsers.forEach(onlineUser => {
-      if (onlineUser.last_latitude && onlineUser.last_longitude) {
-        const userObj = {
-          id: `online_${onlineUser.id}`,
-          volunteer_id: onlineUser.id,
-          name: onlineUser.full_name || onlineUser.username || 'משתמש',
-          role: onlineUser.role,
-          phone: onlineUser.phone_number,
-          photo_url: onlineUser.photo_url,
-          latitude: parseFloat(onlineUser.last_latitude),
-          longitude: parseFloat(onlineUser.last_longitude),
-          status: 'online',
-          type: 'online',
-          lastSeen: new Date(),
-          isLive: true,
-          has_car: onlineUser.has_car,
-          car_type: onlineUser.car_type,
-          license_plate: onlineUser.license_plate,
-          car_color: onlineUser.car_color
-        };
+      if (onlineUser && onlineUser.last_latitude && onlineUser.last_longitude) {
+        const lat = parseFloat(onlineUser.last_latitude);
+        const lng = parseFloat(onlineUser.last_longitude);
         
-        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
+        // Enhanced coordinate validation - reject invalid coordinates
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          const userObj = {
+            id: `online_${onlineUser.id}`,
+            volunteer_id: onlineUser.id,
+            name: onlineUser.full_name || onlineUser.username || 'משתמש',
+            role: onlineUser.role,
+            phone: onlineUser.phone_number,
+            photo_url: onlineUser.photo_url,
+            latitude: lat,
+            longitude: lng,
+            status: 'online',
+            type: 'online',
+            lastSeen: new Date(),
+            isLive: true,
+            has_car: onlineUser.has_car,
+            car_type: onlineUser.car_type,
+            license_plate: onlineUser.license_plate,
+            car_color: onlineUser.car_color
+          };
+          
           currentUsers.set(userObj.volunteer_id, userObj);
         }
       }
     });
     
-    activeTracking.forEach(tracking => {
-      if (tracking.current_latitude && tracking.current_longitude) {
-        const userObj = {
-          id: `tracking_${tracking.assignment_id}`,
-          volunteer_id: tracking.volunteer_id,
-          name: tracking.volunteer?.full_name || tracking.volunteer?.username || 'מתנדב',
-          role: tracking.volunteer?.role,
-          phone: tracking.volunteer?.phone_number,
-          photo_url: tracking.volunteer?.photo_url,
-          latitude: parseFloat(tracking.current_latitude),
-          longitude: parseFloat(tracking.current_longitude),
-          status: tracking.status,
-          type: 'tracking',
-          lastSeen: new Date(),
-          isLive: true,
-          event: tracking.event,
-          departure_time: tracking.departure_time,
-          arrival_time: tracking.arrival_time
-        };
-        
-        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
-          currentUsers.set(userObj.volunteer_id, userObj);
+    // Process tracking users only if we have valid data
+    if (activeTracking && Array.isArray(activeTracking)) {
+      activeTracking.forEach(tracking => {
+        if (tracking && tracking.current_latitude && tracking.current_longitude) {
+          const lat = parseFloat(tracking.current_latitude);
+          const lng = parseFloat(tracking.current_longitude);
+          
+          // Enhanced coordinate validation for tracking users
+          if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0 && 
+              lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            const userObj = {
+              id: `tracking_${tracking.assignment_id}`,
+              volunteer_id: tracking.volunteer_id,
+              name: tracking.volunteer?.full_name || tracking.volunteer?.username || 'מתנדב',
+              role: tracking.volunteer?.role,
+              phone: tracking.volunteer?.phone_number,
+              photo_url: tracking.volunteer?.photo_url,
+              latitude: lat,
+              longitude: lng,
+              status: tracking.status,
+              type: 'tracking',
+              lastSeen: new Date(),
+              isLive: true,
+              event: tracking.event,
+              departure_time: tracking.departure_time,
+              arrival_time: tracking.arrival_time
+            };
+            
+            currentUsers.set(userObj.volunteer_id, userObj);
+          }
         }
-      }
-    });
+      });
+    }
 
-    // Update last known users map
+    // Enhanced user persistence logic
     setLastKnownUsers(prevMap => {
       const newMap = new Map(prevMap);
       
-      // Add/update current users
+      // Add/update current users - only if they have valid coordinates
       currentUsers.forEach((user, userId) => {
         newMap.set(userId, user);
       });
       
-      // Remove users that haven't been seen for more than 5 minutes
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      // Extended cleanup: Remove users that haven't been seen for more than 10 minutes
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
       newMap.forEach((user, userId) => {
-        if (user.lastSeen < fiveMinutesAgo) {
+        if (user.lastSeen < tenMinutesAgo) {
           newMap.delete(userId);
-          // Removed debug logging for performance
+          console.log('🗑️ Removed stale user from memory:', user.name, 'last seen:', user.lastSeen);
         }
       });
       
@@ -1309,7 +1399,7 @@ const LiveTrackingMap = () => {
                 >
                   <TimeIcon sx={{ fontSize: { xs: 12, md: 14 } }} />
                   עדכון אחרון: {new Date().toLocaleTimeString('he-IL')} • 
-                  {currentTab === 0 ? ' מתעדכן בזמן אמת' : ' מתעדכן כל 10 שניות'}
+                  {currentTab === 0 ? ' מתעדכן בזמן אמת' : ' מתעדכן כל 20 שניות'}
                 </Typography>
               </Box>
             </CardContent>
@@ -1395,6 +1485,7 @@ const LiveTrackingMap = () => {
                   </Box>
                 ) : (
                   <MapContainer
+                    ref={mapRef}
                     center={mapCenter}
                     zoom={mapZoom}
                     style={{ height: '100%', width: '100%' }}
@@ -1411,7 +1502,7 @@ const LiveTrackingMap = () => {
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     
-                    {/* User Markers with error handling */}
+                    {/* User Markers with performance optimization for many users */}
                     {usersWithLocations
                       .filter(userLocation => {
                         // Optimized validation to prevent crashes
@@ -1424,6 +1515,7 @@ const LiveTrackingMap = () => {
                                lat >= -90 && lat <= 90 &&
                                lng >= -180 && lng <= 180;
                       })
+                      .slice(0, onlineUsers.length > 50 ? 50 : usersWithLocations.length) // Performance limit
                       .map((userLocation) => {
                         try {
                           return (
@@ -1448,11 +1540,17 @@ const LiveTrackingMap = () => {
                                   </div>
                                   <div className="info-item">
                                     <span 
-                                      className={`status-indicator ${userLocation.isLive ? (userLocation.type === 'online' ? 'status-online' : 'status-tracking') : 'status-offline'}`}
+                                      className={`status-indicator ${
+                                        userLocation.isLive ? 
+                                          (userLocation.type === 'online' ? 'status-online' : 'status-tracking') : 
+                                          'status-offline'
+                                      }`}
                                     ></span>
                                     {userLocation.isLive ? 
                                       (userLocation.type === 'online' ? 'מחובר למערכת' : getStatusText(userLocation.status)) :
-                                      'מנותק זמנית (מיקום אחרון)'
+                                      userLocation.status === 'temporarily_disconnected' ? 
+                                        'מנותק זמנית - מיקום אחרון' : 
+                                        'לא מחובר (מיקום אחרון)'
                                     }
                                   </div>
                                   
@@ -1592,6 +1690,7 @@ const LiveTrackingMap = () => {
                       onFocusComplete={() => setFocusTarget(null)}
                       highlightedUser={highlightedUser}
                       usersWithLocations={usersWithLocations}
+                      lastKnownUsers={lastKnownUsers}
                     />
                   </MapContainer>
                 )}
