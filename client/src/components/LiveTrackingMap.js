@@ -316,6 +316,7 @@ const LiveTrackingMap = () => {
   // Map Focus Controller Component with persistent tracking
   const MapFocusController = ({ focusTarget, onFocusComplete, highlightedUser, usersWithLocations }) => {
     const map = useMap();
+    const lastTrackedPosition = useRef(null);
 
     // Initial focus when user is selected
     useEffect(() => {
@@ -324,6 +325,9 @@ const LiveTrackingMap = () => {
           animate: true,
           duration: 1.5
         });
+        
+        // Store the initial position
+        lastTrackedPosition.current = { lat: focusTarget.lat, lng: focusTarget.lng };
         
         // Call completion callback after animation
         const timer = setTimeout(() => {
@@ -336,28 +340,47 @@ const LiveTrackingMap = () => {
       }
     }, [map, focusTarget, onFocusComplete]);
 
-    // Continuous tracking of highlighted user
+    // Continuous tracking of highlighted user with debouncing
     useEffect(() => {
-      if (highlightedUser && usersWithLocations) {
+      if (highlightedUser && usersWithLocations && usersWithLocations.length > 0) {
         const highlightedUserData = usersWithLocations.find(u => u.volunteer_id === highlightedUser);
         
         if (highlightedUserData && highlightedUserData.latitude && highlightedUserData.longitude) {
-          const currentCenter = map.getCenter();
           const userLat = highlightedUserData.latitude;
           const userLng = highlightedUserData.longitude;
           
-          // Only update map position if user has moved significantly (more than ~50 meters)
-          const distance = map.distance([currentCenter.lat, currentCenter.lng], [userLat, userLng]);
+          // Check if user position actually changed significantly
+          const lastPos = lastTrackedPosition.current;
+          let shouldUpdate = false;
           
-          if (distance > 50) {
-            map.setView([userLat, userLng], map.getZoom(), {
+          if (!lastPos) {
+            shouldUpdate = true;
+          } else {
+            const latDiff = Math.abs(lastPos.lat - userLat);
+            const lngDiff = Math.abs(lastPos.lng - userLng);
+            // Update if user moved more than ~10 meters
+            shouldUpdate = latDiff > 0.0001 || lngDiff > 0.0001;
+          }
+          
+          if (shouldUpdate) {
+            map.setView([userLat, userLng], Math.max(map.getZoom(), 15), {
               animate: true,
-              duration: 1
+              duration: 0.5
             });
+            
+            // Update the last tracked position
+            lastTrackedPosition.current = { lat: userLat, lng: userLng };
           }
         }
       }
     }, [map, highlightedUser, usersWithLocations]);
+
+    // Clear tracking position when user is deselected
+    useEffect(() => {
+      if (!highlightedUser) {
+        lastTrackedPosition.current = null;
+      }
+    }, [highlightedUser]);
 
     return null;
   };
@@ -507,8 +530,8 @@ const LiveTrackingMap = () => {
   useEffect(() => {
     loadActiveTracking();
     
-    // Reduced refresh interval to 30 seconds to prevent performance issues
-    const interval = setInterval(loadActiveTracking, 30000);
+    // Increase refresh interval to 2 minutes to prevent interference with real-time updates
+    const interval = setInterval(loadActiveTracking, 120000);
     return () => clearInterval(interval);
   }, []);
 
@@ -534,20 +557,40 @@ const LiveTrackingMap = () => {
         volunteerAssignmentAPI.getActiveEventsWithCoordinates()
       ]);
       
-      // Only update state if data actually changed to prevent unnecessary re-renders
+      // Only update state if data length actually changed to reduce re-renders
       setActiveTracking(prevTracking => {
-        const trackingChanged = JSON.stringify(prevTracking) !== JSON.stringify(tracking);
-        if (trackingChanged) {
+        // Simple comparison - only update if count changed
+        if (prevTracking.length !== tracking.length) {
           return tracking;
         }
+        
+        // Check if any tracking IDs changed
+        const prevIds = new Set(prevTracking.map(t => t.assignment_id));
+        const newIds = new Set(tracking.map(t => t.assignment_id));
+        
+        if (prevIds.size !== newIds.size || 
+            [...prevIds].some(id => !newIds.has(id))) {
+          return tracking;
+        }
+        
         return prevTracking;
       });
       
       setActiveEvents(prevEvents => {
-        const eventsChanged = JSON.stringify(prevEvents) !== JSON.stringify(events);
-        if (eventsChanged) {
+        // Simple comparison for events
+        if (prevEvents.length !== events.length) {
           return events;
         }
+        
+        // Check if any event IDs changed
+        const prevIds = new Set(prevEvents.map(e => e.id));
+        const newIds = new Set(events.map(e => e.id));
+        
+        if (prevIds.size !== newIds.size || 
+            [...prevIds].some(id => !newIds.has(id))) {
+          return events;
+        }
+        
         return prevEvents;
       });
       
@@ -712,29 +755,34 @@ const LiveTrackingMap = () => {
       }
     });
     
-    // Add users from last known positions if they're not currently online (keep them for 2 minutes)
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    // Add users from last known positions if they're not currently online (keep them for 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const currentUserIds = new Set([
       ...onlineUsers.map(u => u.id),
       ...activeTracking.map(t => t.volunteer_id)
     ]);
     
     lastKnownUsers.forEach((lastUser, userId) => {
-      if (!currentUserIds.has(userId) && lastUser.lastSeen > twoMinutesAgo) {
+      if (!currentUserIds.has(userId) && lastUser.lastSeen > fiveMinutesAgo) {
         // User is temporarily offline but was seen recently, keep showing with "offline" status
         const offlineUser = {
           ...lastUser,
           isLive: false,
-          status: lastUser.type === 'tracking' ? 'offline' : 'offline'
+          status: 'offline'
         };
         users.push(offlineUser);
-        console.log(`DEBUG: Keeping offline user ${lastUser.name} from last known position`);
       }
     });
-    // Removed excessive debug logging for better performance
     
     return users;
-  }, [onlineUsers, activeTracking, lastKnownUsers]);
+  }, [
+    onlineUsers.length, 
+    activeTracking.length, 
+    lastKnownUsers.size,
+    // Add user IDs to dependencies for more stable comparison
+    onlineUsers.map(u => u.id).join(','),
+    activeTracking.map(t => t.volunteer_id).join(',')
+  ]);
 
   // Update last known users in a separate effect to avoid infinite loops
   useEffect(() => {
