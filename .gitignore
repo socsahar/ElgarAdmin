@@ -43,6 +43,10 @@ index.js.backup
 auth-mongodb.js.bak
 upload-local.js.backup
 
+# Documentation (Internal)
+RENDER_OPTIMIZATION.md
+MEMORY_BANK.md
+
 # User Data & Images (SENSITIVE)
 user*.png
 user*.jpg

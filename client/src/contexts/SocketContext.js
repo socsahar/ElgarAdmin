@@ -73,6 +73,7 @@ export const SocketProvider = ({ children }) => {
           console.log('🆔 Socket ID:', newSocket.id);
           console.log('🌐 Socket URL:', SOCKET_URL);
           console.log('📊 Transport:', newSocket.io.engine.transport.name);
+          console.log('🔗 Connection state:', newSocket.connected);
           setConnected(true);
           setConnecting(false);
           
@@ -107,7 +108,10 @@ export const SocketProvider = ({ children }) => {
         newSocket.on('connect_error', (error) => {
           console.error('❌ Socket connection error:', error);
           console.error('🔗 Attempted URL:', SOCKET_URL);
-          console.error('🔄 Retry in 3 seconds...');
+          console.error('� Error type:', error.type);
+          console.error('🔍 Error description:', error.description);
+          console.error('🔍 Error context:', error.context);
+          console.error('�🔄 Retry in 5 seconds...');
           setConnecting(false);
         });
 

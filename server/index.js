@@ -82,16 +82,13 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 
-// CORS configuration - UPDATED FOR RENDER DEPLOYMENT
+// CORS configuration - RENDER PRODUCTION ONLY
 app.use(cors({
   origin: [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:3001',
-    process.env.CLIENT_URL,
     'https://elgaradmin-frontend.onrender.com',
-    // Add your actual frontend Render URL here
-    'https://your-frontend-app.onrender.com'
+    process.env.CLIENT_URL,
+    // Allow any Render subdomain for debugging
+    /https:\/\/.*\.onrender\.com$/
   ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -131,6 +128,11 @@ const authLogger = (req, res, next) => {
     // Log API request (skip health checks and static files)
     if (!req.path.includes('/health') && !req.path.includes('/uploads')) {
       console.log(`📡 API: ${req.method} ${req.path} - ${res.statusCode} (${duration}ms) - User: ${userId || 'Anonymous'}`);
+      
+      // Extra debugging for volunteer assignment calls
+      if (req.path.includes('/volunteer-assignments')) {
+        console.log(`🔍 Volunteer API: ${req.method} ${req.path} - ${res.statusCode} - Auth: ${!!req.user}`);
+      }
     }
   });
   
@@ -236,12 +238,10 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      process.env.CLIENT_URL,
       'https://elgaradmin-frontend.onrender.com',
-      // Add your actual frontend Render URL here
-      'https://your-frontend-app.onrender.com'
+      process.env.CLIENT_URL,
+      // Allow any Render subdomain for debugging
+      /https:\/\/.*\.onrender\.com$/
     ].filter(Boolean),
     methods: ['GET', 'POST'],
     credentials: true
@@ -267,11 +267,14 @@ const onlineUsers = new Map();
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log('👤 User connected:', socket.id);
+  console.log('🌐 Origin:', socket.handshake.headers.origin);
+  console.log('🔗 Referer:', socket.handshake.headers.referer);
 
   // Handle admin user joining
   socket.on('join-admin', async (userData) => {
     try {
       console.log('🔐 Admin joining:', userData?.username || 'Unknown');
+      console.log('📊 User data received:', !!userData);
       
       // Store user information
       socket.userInfo = {

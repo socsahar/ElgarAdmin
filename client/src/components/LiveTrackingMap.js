@@ -579,6 +579,7 @@ const LiveTrackingMap = () => {
   // Throttled version of loadActiveTracking to prevent excessive API calls
   const loadActiveTracking = useCallback(async () => {
     try {
+      console.log('🔄 Loading active tracking data...');
       setLoading(true);
       
       // Load both tracking data and active events with coordinates
@@ -586,6 +587,9 @@ const LiveTrackingMap = () => {
         volunteerAssignmentAPI.getActiveTracking(),
         volunteerAssignmentAPI.getActiveEventsWithCoordinates()
       ]);
+      
+      console.log('📊 Received tracking data:', tracking?.length || 0, 'assignments');
+      console.log('📊 Received events data:', events?.length || 0, 'events');
       
       // Only update state if data length actually changed to reduce re-renders
       setActiveTracking(prevTracking => {
