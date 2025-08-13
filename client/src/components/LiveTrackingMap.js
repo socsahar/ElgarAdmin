@@ -505,7 +505,7 @@ const LiveTrackingMap = () => {
   };
 
   const handleCancelMove = () => {
-    // Revert marker to original position
+    // Revert marker to original position on dialog cancel
     if (confirmDialog.marker && confirmDialog.originalPosition) {
       confirmDialog.marker.setLatLng(confirmDialog.originalPosition);
     }
