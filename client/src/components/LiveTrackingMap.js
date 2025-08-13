@@ -319,6 +319,23 @@ const LiveTrackingMap = () => {
     marker: null
   });
 
+  // Security check - only allow specific command roles (MOVED TO TOP)
+  const allowedRoles = ['מוקדן', 'מפקד משל"ט', 'פיקוד יחידה', 'אדמין', 'מפתח'];
+  
+  if (!user || !allowedRoles.includes(user.role)) {
+    return (
+      <Card sx={{ p: 3 }}>
+        <Alert severity="error">
+          ⚠️ אין לך הרשאה לצפות במעקב חי
+          <br />
+          <Typography variant="caption" color="text.secondary">
+            מעקב חי זמין רק עבור: {allowedRoles.join(', ')}
+          </Typography>
+        </Alert>
+      </Card>
+    );
+  }
+
   // Map Focus Controller Component with persistent tracking
   const MapFocusController = ({ focusTarget, onFocusComplete, highlightedUser, usersWithLocations, lastKnownUsers }) => {
     const map = useMap();
@@ -419,9 +436,6 @@ const LiveTrackingMap = () => {
         lastTrackedPosition.current = null;
       }
     }, [highlightedUser]);
-
-    return null;
-  };
 
   // Function to handle flag movement confirmation
   const handleFlagDragStart = (event, marker) => {
@@ -548,22 +562,9 @@ const LiveTrackingMap = () => {
     }
   };
 
-  // Security check - only allow specific command roles
-  const allowedRoles = ['מוקדן', 'מפקד משל"ט', 'פיקוד יחידה', 'אדמין', 'מפתח'];
-  
-  if (!user || !allowedRoles.includes(user.role)) {
-    return (
-      <Card sx={{ p: 3 }}>
-        <Alert severity="error">
-          ⚠️ אין לך הרשאה לצפות במעקב חי
-          <br />
-          <Typography variant="caption" color="text.secondary">
-            מעקב חי זמין רק עבור: {allowedRoles.join(', ')}
-          </Typography>
-        </Alert>
-      </Card>
-    );
-  }
+  // Close MapFocusController component properly
+  return null;
+  };
 
   // Removed excessive debug logging that was causing performance issues
 
@@ -641,16 +642,10 @@ const LiveTrackingMap = () => {
   useEffect(() => {
     loadActiveTracking();
     
-    // FREE TIER optimization: Much longer intervals to reduce server load
-    const getRefreshInterval = () => {
-      if (onlineUsers.length > 20) return 300000; // 5 minutes for many users
-      if (onlineUsers.length > 10) return 240000; // 4 minutes for moderate users
-      return 180000; // 3 minutes minimum for free tier
-    };
-    
-    const interval = setInterval(loadActiveTracking, getRefreshInterval());
+    // FREE TIER optimization: Fixed interval to prevent memory leaks
+    const interval = setInterval(loadActiveTracking, 300000); // Fixed 5 minutes for free tier
     return () => clearInterval(interval);
-  }, [loadActiveTracking, onlineUsers.length]);
+  }, [loadActiveTracking]); // Removed onlineUsers.length dependency to prevent infinite re-creation
 
   // Throttled map update handler for FREE TIER performance optimization
   const throttledMapUpdate = useCallback(

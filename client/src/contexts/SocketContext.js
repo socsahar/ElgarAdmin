@@ -292,7 +292,16 @@ export const SocketProvider = ({ children }) => {
       setOnlineUsers([]);
       setLastUserData(null);
     }
-  }, [user, enqueueSnackbar, socket, lastUserData]);
+    
+    // CLEANUP FUNCTION - CRITICAL for preventing memory leaks
+    return () => {
+      if (socket) {
+        console.log('🧹 Cleaning up socket connection on unmount');
+        socket.removeAllListeners();
+        socket.disconnect();
+      }
+    };
+  }, [user?.id, user?.username]); // FIXED: Only user ID/username to prevent infinite loops
 
   const requestOnlineUsers = () => {
     if (socket && connected) {

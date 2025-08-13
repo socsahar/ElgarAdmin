@@ -90,19 +90,9 @@ const VehicleSearch = () => {
   const canManagePermissions = false; // Removed permission management
   const canDelegatePermissions = false; // Removed permission management
 
-  // If user not logged in, show access denied
-  if (!user) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center', direction: 'rtl' }}>
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>אין הרשאת גישה</Typography>
-          אין לך הרשאה לגשת למערכת השאילתא. פנה למפתח המערכת לקבלת הרשאות.
-        </Alert>
-      </Box>
-    );
-  }
-  
-  // State management
+  // State management - ALL hooks MUST be declared at the top
+
+  // State management - MUST be before any conditional returns
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -113,14 +103,40 @@ const VehicleSearch = () => {
   const [allVehicles, setAllVehicles] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [delegationFilter, setDelegationFilter] = useState('all');
+  const [allUsers, setAllUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [expandedItems, setExpandedItems] = useState(new Set());
+
+  // Dialog states
+  const [editDialog, setEditDialog] = useState({ open: false, vehicle: null });
+  
+  // Delegation management
+  const [selectedVehicleForDelegation, setSelectedVehicleForDelegation] = useState(null);
+  
+  // Permission management
+  const [permissionDialog, setPermissionDialog] = useState({ open: false, user: null });
+  
+  // Create new vehicle state
+  const [createVehicleOpen, setCreateVehicleOpen] = useState(false);
+  const [newVehicleData, setNewVehicleData] = useState({
+    license_plate: '',
+    brand: '',
+    model: '',
+    year: '',
+    color: '',
+    owner_id: '',
+    type: 'רכב פרטי'
+  });
+
+  // Additional component state
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [showVehicleDialog, setShowVehicleDialog] = useState(false);
   
-  // User permissions management state
-  const [showPermissionsPanel, setShowPermissionsPanel] = useState(false);
-  const [allUsers, setAllUsers] = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  // User permissions management state (legacy - keeping for compatibility)
   const [userPermissions, setUserPermissions] = useState([]);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   
