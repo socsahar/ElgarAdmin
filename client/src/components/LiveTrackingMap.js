@@ -16,7 +16,13 @@ import {
   Tab,
   Grid,
   Paper,
-  Avatar
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button
 } from '@mui/material';
 import {
   LocationOn as LocationIcon,
@@ -210,6 +216,17 @@ const LiveTrackingMap = () => {
   const [mapZoom, setMapZoom] = useState(10);
   const [focusTarget, setFocusTarget] = useState(null);
   const [highlightedUser, setHighlightedUser] = useState(null);
+  
+  // Flag movement confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    eventId: null,
+    originalPosition: null,
+    newPosition: null,
+    originalAddress: '',
+    newAddress: '',
+    marker: null
+  });
 
   // Map Focus Controller Component
   const MapFocusController = ({ focusTarget, onFocusComplete }) => {
@@ -236,7 +253,77 @@ const LiveTrackingMap = () => {
     return null;
   };
 
-  // Function to update event coordinates when flag is dragged
+  // Function to handle flag movement confirmation
+  const handleFlagDragStart = (event, marker) => {
+    // Store original position when drag starts
+    const originalPosition = marker.getLatLng();
+    setConfirmDialog(prev => ({
+      ...prev,
+      eventId: event.id,
+      originalPosition: originalPosition,
+      originalAddress: event.full_address || 'כתובת לא ידועה',
+      marker: marker
+    }));
+  };
+
+  const handleFlagDragEnd = async (event, marker) => {
+    const newPosition = marker.getLatLng();
+    const originalPosition = confirmDialog.originalPosition;
+    
+    // Check if the position actually changed significantly (more than ~10 meters)
+    if (originalPosition && 
+        (Math.abs(originalPosition.lat - newPosition.lat) > 0.0001 || 
+         Math.abs(originalPosition.lng - newPosition.lng) > 0.0001)) {
+      
+      try {
+        // Get new address for the coordinates using reverse geocoding
+        const newAddress = await geocodingService.coordinatesToAddress(newPosition.lat, newPosition.lng);
+        
+        // Update dialog with new position and address
+        setConfirmDialog(prev => ({
+          ...prev,
+          newPosition: newPosition,
+          newAddress: newAddress || 'לא ניתן לקבוע כתובת',
+          open: true
+        }));
+        
+      } catch (error) {
+        console.error('Error getting new address:', error);
+        setConfirmDialog(prev => ({
+          ...prev,
+          newPosition: newPosition,
+          newAddress: 'שגיאה בקבלת כתובת',
+          open: true
+        }));
+      }
+    }
+  };
+
+  const handleConfirmMove = async () => {
+    try {
+      await updateEventCoordinates(
+        confirmDialog.eventId, 
+        confirmDialog.newPosition.lat, 
+        confirmDialog.newPosition.lng
+      );
+      setConfirmDialog({ open: false, eventId: null, originalPosition: null, newPosition: null, originalAddress: '', newAddress: '', marker: null });
+    } catch (error) {
+      console.error('Error updating event coordinates:', error);
+      // Revert marker position on error
+      if (confirmDialog.marker && confirmDialog.originalPosition) {
+        confirmDialog.marker.setLatLng(confirmDialog.originalPosition);
+      }
+      setConfirmDialog({ open: false, eventId: null, originalPosition: null, newPosition: null, originalAddress: '', newAddress: '', marker: null });
+    }
+  };
+
+  const handleCancelMove = () => {
+    // Revert marker to original position
+    if (confirmDialog.marker && confirmDialog.originalPosition) {
+      confirmDialog.marker.setLatLng(confirmDialog.originalPosition);
+    }
+    setConfirmDialog({ open: false, eventId: null, originalPosition: null, newPosition: null, originalAddress: '', newAddress: '', marker: null });
+  };
   const updateEventCoordinates = async (eventId, newLat, newLng) => {
     try {
       console.log(`🚩 Updating event ${eventId} coordinates to:`, { lat: newLat, lng: newLng });
@@ -1051,11 +1138,13 @@ const LiveTrackingMap = () => {
                         icon={createEventFlagIcon(event.event_status)}
                         draggable={true}
                         eventHandlers={{
+                          dragstart: (e) => {
+                            const marker = e.target;
+                            handleFlagDragStart(event, marker);
+                          },
                           dragend: (e) => {
                             const marker = e.target;
-                            const position = marker.getLatLng();
-                            console.log(`🚩 Flag dragged for event ${event.id}:`, position);
-                            updateEventCoordinates(event.id, position.lat, position.lng);
+                            handleFlagDragEnd(event, marker);
                           }
                         }}
                       >
@@ -1126,6 +1215,50 @@ const LiveTrackingMap = () => {
           </Card>
         </Grid>
       </Grid>
+      
+      {/* Flag Movement Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={handleCancelMove}
+        aria-labelledby="confirm-move-dialog-title"
+        aria-describedby="confirm-move-dialog-description"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle id="confirm-move-dialog-title">
+          אישור העברת דגל
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="confirm-move-dialog-description" component="div">
+            <Typography variant="body1" gutterBottom>
+              האם אתה בטוח שברצונך להעביר את הדגל?
+            </Typography>
+            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                מכתובת:
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2, color: '#666' }}>
+                {confirmDialog.originalAddress}
+              </Typography>
+              
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                לכתובת:
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                {confirmDialog.newAddress}
+              </Typography>
+            </Box>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelMove} color="primary">
+            ביטול
+          </Button>
+          <Button onClick={handleConfirmMove} color="primary" variant="contained">
+            כן, העבר דגל
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

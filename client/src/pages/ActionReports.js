@@ -481,14 +481,82 @@ const ActionReports = () => {
         responseType: 'text'
       });
       
-      // Open new window with the HTML content for preview
-      const previewWindow = window.open('', '_blank');
-      previewWindow.document.write(response.data);
-      previewWindow.document.close();
+      // Check if popup blocker prevented window from opening
+      const previewWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      
+      if (!previewWindow) {
+        // Popup was blocked, offer download alternative
+        const shouldDownload = window.confirm(
+          'חסום על ידי חוסם חלונות קופצים.\n\nהאם ברצונך להוריד את הדוח כקובץ HTML במקום זאת?'
+        );
+        
+        if (shouldDownload) {
+          handleDownloadReport(reportId, response.data);
+        } else {
+          showSnackbar('אנא אפשר חלונות קופצים באתר זה ונסה שוב', 'info');
+        }
+        return;
+      }
+      
+      // Check if window is actually accessible
+      try {
+        previewWindow.document.open();
+        previewWindow.document.write(response.data);
+        previewWindow.document.close();
+        
+        // Set window title
+        previewWindow.document.title = 'תצוגה מקדימה - דוח פעולה';
+        
+        // Focus the window
+        previewWindow.focus();
+      } catch (windowError) {
+        console.error('Error writing to preview window:', windowError);
+        previewWindow.close();
+        
+        // Offer download as alternative
+        const shouldDownload = window.confirm(
+          'שגיאה בפתיחת חלון התצוגה המקדימה.\n\nהאם ברצונך להוריד את הדוח כקובץ HTML במקום זאת?'
+        );
+        
+        if (shouldDownload) {
+          handleDownloadReport(reportId, response.data);
+        }
+      }
       
     } catch (error) {
       console.error('Error previewing report:', error);
-      showSnackbar('שגיאה בתצוגה מקדימה של הדוח', 'error');
+      let errorMessage = 'שגיאה בתצוגה מקדימה של הדוח';
+      
+      if (error.response?.status === 403) {
+        errorMessage = 'אין לך הרשאה לצפות בדוח זה';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'הדוח לא נמצא';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'שגיאה בשרת. נסה שוב מאוחר יותר';
+      } else if (!error.response) {
+        errorMessage = 'בעיית חיבור לשרת. בדוק את החיבור לאינטרנט';
+      }
+      
+      showSnackbar(errorMessage, 'error');
+    }
+  };
+
+  const handleDownloadReport = (reportId, htmlContent) => {
+    try {
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `action-report-${reportId}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showSnackbar('הדוח הורד בהצלחה', 'success');
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      showSnackbar('שגיאה בהורדת הדוח', 'error');
     }
   };
 
@@ -669,7 +737,7 @@ const ActionReports = () => {
                         <IconButton
                           size="small"
                           onClick={() => handlePreviewReport(report.id)}
-                          title="תצוגה מקדימה"
+                          title="תצוגה מקדימה (אם חסום, יוצע הורדה)"
                         >
                           <ViewIcon />
                         </IconButton>
@@ -904,7 +972,7 @@ const ActionReports = () => {
                     <IconButton
                       size="small"
                       onClick={() => handlePreviewReport(report.id)}
-                      title="תצוגה מקדימה"
+                      title="תצוגה מקדימה (אם חסום, יוצע הורדה)"
                     >
                       <ViewIcon />
                     </IconButton>

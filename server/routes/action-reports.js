@@ -419,6 +419,11 @@ router.get('/:id/print', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validate ID parameter
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ error: 'Invalid report ID' });
+    }
+
     const { data: report, error } = await supabaseAdmin
       .from('action_reports')
       .select(`
@@ -443,21 +448,34 @@ router.get('/:id/print', auth, async (req, res) => {
       .eq('id', id)
       .single();
 
-    if (error || !report) {
+    if (error) {
+      console.error('Database error fetching report:', error);
+      return res.status(500).json({ error: 'Failed to fetch report from database' });
+    }
+
+    if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
 
     // Check if user has permission to print this report
     const hasPrintPermission = ['מפתח', 'אדמין', 'פיקוד יחידה', 'מפקד משל"ט'].includes(req.user.role);
     if (report.volunteer_id !== req.user.id && !hasPrintPermission) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+      return res.status(403).json({ error: 'Insufficient permissions to view this report' });
     }
 
     // Generate HTML for printing
-    const html = generatePrintableHTML(report);
-    
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(html);
+    try {
+      const html = generatePrintableHTML(report);
+      
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.send(html);
+    } catch (htmlError) {
+      console.error('Error generating HTML:', htmlError);
+      return res.status(500).json({ error: 'Failed to generate report HTML' });
+    }
   } catch (err) {
     console.error('Error in print action report:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -467,12 +485,29 @@ router.get('/:id/print', auth, async (req, res) => {
 // Helper function to generate printable HTML
 function generatePrintableHTML(report) {
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('he-IL');
+    if (!dateString) return 'לא צוין';
+    try {
+      return new Date(dateString).toLocaleDateString('he-IL');
+    } catch (e) {
+      return 'תאריך לא תקין';
+    }
   };
 
   const formatTime = (timeString) => {
-    return timeString ? timeString.substring(0, 5) : '';
+    if (!timeString) return 'לא צוין';
+    try {
+      return timeString.substring(0, 5);
+    } catch (e) {
+      return 'שעה לא תקינה';
+    }
   };
+
+  const safeValue = (value) => value || 'לא צוין';
+
+  // Use absolute URL for logo to avoid loading issues
+  const logoUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://elgaradmin-backend.onrender.com/img/logo.png'
+    : 'http://localhost:5000/img/logo.png';
 
   return `
 <!DOCTYPE html>
@@ -505,6 +540,21 @@ function generatePrintableHTML(report) {
             height: 80px;
             margin: 0 auto 10px;
             display: block;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .logo-fallback {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 10px;
+            display: block;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 80px;
+            font-size: 12px;
+            color: #666;
         }
         .title {
             font-size: 24px;
@@ -543,6 +593,7 @@ function generatePrintableHTML(report) {
             min-height: 200px;
             white-space: pre-wrap;
             background-color: #fafafa;
+            word-wrap: break-word;
         }
         .signature-section {
             margin-top: 30px;
@@ -556,11 +607,13 @@ function generatePrintableHTML(report) {
 </head>
 <body>
     <div class="header">
-        <img src="/img/logo.png" alt="לוגו יחידת אלג'ר" class="logo" />
+        <img src="${logoUrl}" alt="לוגו יחידת אלג'ר" class="logo" 
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+        <div class="logo-fallback" style="display: none;">לוגו יחידת אלג"ר</div>
         <div class="title">יחידת אלג"ר</div>
         <div class="subtitle">האירגון הארצי למניעת גניבות רכבים</div>
         <div style="margin-top: 15px; font-size: 14px;">
-            מספר עמוד: 580772119 (ע"ר)
+            מספר עמותה: 580772119 (ע"ר)
         </div>
     </div>
 
@@ -584,7 +637,7 @@ function generatePrintableHTML(report) {
         </tr>
         <tr>
             <td class="label">מקום האירוע</td>
-            <td colspan="3">${report.event_address}</td>
+            <td colspan="3">${safeValue(report.event_address)}</td>
         </tr>
     </table>
 
@@ -592,19 +645,19 @@ function generatePrintableHTML(report) {
     <table class="info-table">
         <tr>
             <td class="label">שם מלא</td>
-            <td>${report.volunteer_full_name}</td>
+            <td>${safeValue(report.volunteer_full_name)}</td>
             <td class="label">תעודת זהות</td>
-            <td>${report.volunteer_id_number}</td>
+            <td>${safeValue(report.volunteer_id_number)}</td>
         </tr>
         <tr>
             <td class="label">טלפון</td>
-            <td>${report.volunteer_phone}</td>
+            <td>${safeValue(report.volunteer_phone)}</td>
             <td class="label">יחידה</td>
             <td>יחידת אלג"ר</td>
         </tr>
         <tr>
             <td class="label">תפקיד</td>
-            <td colspan="3">${report.volunteer_role}</td>
+            <td colspan="3">${safeValue(report.volunteer_role)}</td>
         </tr>
     </table>
 
@@ -613,24 +666,24 @@ function generatePrintableHTML(report) {
     <table class="info-table">
         <tr>
             <td class="label">שם מלא</td>
-            <td>${report.partner_name || ''}</td>
+            <td>${safeValue(report.partner_name)}</td>
             <td class="label">תעודת זהות</td>
-            <td>${report.partner_id_number || ''}</td>
+            <td>${safeValue(report.partner_id_number)}</td>
         </tr>
         <tr>
             <td class="label">טלפון</td>
-            <td colspan="3">${report.partner_phone || ''}</td>
+            <td colspan="3">${safeValue(report.partner_phone)}</td>
         </tr>
     </table>
     ` : ''}
 
     <div class="section-title">פירוט האירוע</div>
-    <div class="report-content">${report.full_report}</div>
+    <div class="report-content">${safeValue(report.full_report)}</div>
 
     <div class="signature-section">
         <p><strong>חתימה דיגיטלית:</strong> ${report.digital_signature ? '✓ חתום דיגיטלית' : '✗ לא חתום'}</p>
         ${report.signature_timestamp ? `<p><strong>תאריך חתימה:</strong> ${new Date(report.signature_timestamp).toLocaleString('he-IL')}</p>` : ''}
-        ${report.reviewed_by ? `<p><strong>נבדק ואושר על ידי:</strong> ${report.reviewed_by.full_name}</p>` : ''}
+        ${report.reviewed_by ? `<p><strong>נבדק ואושר על ידי:</strong> ${safeValue(report.reviewed_by.full_name)}</p>` : ''}
         ${report.reviewed_at ? `<p><strong>תאריך אישור:</strong> ${new Date(report.reviewed_at).toLocaleString('he-IL')}</p>` : ''}
     </div>
 </body>
