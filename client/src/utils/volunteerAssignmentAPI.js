@@ -57,6 +57,12 @@ export const volunteerAssignmentAPI = {
   getActiveTracking: async () => {
     const response = await api.get('/api/volunteer-assignments/active-tracking');
     return response.data;
+  },
+
+  // Get active events with GPS coordinates (for map markers)
+  getActiveEventsWithCoordinates: async () => {
+    const response = await api.get('/api/admin/events/active-with-coordinates');
+    return response.data;
   }
 };
 

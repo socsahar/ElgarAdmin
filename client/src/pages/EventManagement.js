@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -62,6 +62,7 @@ import api from '../utils/api';
 import volunteerAssignmentAPI from '../utils/volunteerAssignmentAPI';
 import UserAvatar from '../components/UserAvatar';
 import { hasPermission } from '../utils/permissions';
+import geocodingService from '../services/geocodingService';
 
 const EventManagement = () => {
   const { user } = useAuth();
@@ -155,6 +156,8 @@ const EventManagement = () => {
   const [eventForm, setEventForm] = useState({
     title: '',
     full_address: '',
+    event_latitude: '',
+    event_longitude: '',
     details: '',
     license_plate: '',
     car_model: '',
@@ -164,12 +167,17 @@ const EventManagement = () => {
     owner_phone: '',
     theft_type: 'זעזועים',
     car_status: 'זעזועים',
+    event_status: 'דווח', // Default to 'דווח' (reported) so events appear on map
     priority: 'בינוני',
     estimated_value: '',
     police_report_number: '',
     needs_tracking_system: false,
     tracking_url: '',
   });
+
+  // Geocoding state
+  const [geocodingLoading, setGeocodingLoading] = useState(false);
+  const [geocodingError, setGeocodingError] = useState(null);
 
   // Car theft specific status options
   const eventStatuses = ['דווח', 'פעיל', 'הוקצה', 'בטיפול', 'הסתיים', 'בוטל', 'סגור'];
@@ -190,6 +198,52 @@ const EventManagement = () => {
       loadTrackingOverview();
     }
   }, [user]);
+
+  // Auto-geocoding function
+  const handleAddressGeocode = useCallback(async (address) => {
+    if (!address || address.trim().length < 5) {
+      return;
+    }
+
+    if (!geocodingService) {
+      console.error('Geocoding service not available');
+      setGeocodingError('שירות חיפוש הכתובות לא זמין');
+      return;
+    }
+
+    setGeocodingLoading(true);
+    setGeocodingError(null);
+
+    try {
+      const coordinates = await geocodingService.addressToCoordinates(address);
+      
+      if (coordinates && coordinates.latitude && coordinates.longitude) {
+        setEventForm(prev => ({
+          ...prev,
+          event_latitude: coordinates.latitude.toString(),
+          event_longitude: coordinates.longitude.toString()
+        }));
+      } else {
+        setGeocodingError('לא נמצאו קואורדינטות עבור הכתובת');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      setGeocodingError('שגיאה בחיפוש הכתובת: ' + error.message);
+    } finally {
+      setGeocodingLoading(false);
+    }
+  }, []);
+
+  // Auto-geocoding when address changes (with debounce)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (eventForm.full_address && eventForm.full_address.trim().length > 10) {
+        handleAddressGeocode(eventForm.full_address);
+      }
+    }, 1500); // Wait 1.5 seconds after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [eventForm.full_address, handleAddressGeocode]);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -306,6 +360,8 @@ const EventManagement = () => {
     setEventForm({
       title: 'חשד לגניבה ממתין לאישור בעלים',
       full_address: '',
+      event_latitude: '',
+      event_longitude: '',
       details: '',
       license_plate: '',
       car_model: '',
@@ -315,6 +371,7 @@ const EventManagement = () => {
       owner_phone: '',
       theft_type: 'זעזועים',
       car_status: 'זעזועים',
+      event_status: 'דווח', // Default status for new events to appear on map
       priority: 'בינוני',
       estimated_value: '',
       police_report_number: '',
@@ -329,6 +386,8 @@ const EventManagement = () => {
     setEventForm({
       title: event.title,
       full_address: event.full_address,
+      event_latitude: event.event_latitude || '',
+      event_longitude: event.event_longitude || '',
       details: event.details,
       license_plate: event.license_plate,
       car_model: event.car_model,
@@ -358,7 +417,8 @@ const EventManagement = () => {
         // Create new event via API
         const response = await api.post('/api/admin/events', {
           ...eventForm,
-          status: 'דווח',
+          // Make sure event_status is properly set for new events
+          event_status: eventForm.event_status || 'דווח',
           creator_id: user?.id,
           assigned_volunteers: []
         });
@@ -1320,6 +1380,16 @@ const EventManagement = () => {
                 onChange={(e) => setEventForm({ ...eventForm, full_address: e.target.value })}
                 required
                 placeholder="לדוגמה: רחוב הרצל 29, פתח תקווה"
+                helperText={
+                  geocodingLoading ? "מחפש קואורדינטות..." :
+                  geocodingError ? geocodingError :
+                  eventForm.event_latitude && eventForm.event_longitude ? "✅ נמצאו קואורדינטות GPS" :
+                  "הזן כתובת מלאה והמערכת תמצא קואורדינטות GPS אוטומטית"
+                }
+                error={!!geocodingError}
+                InputProps={{
+                  endAdornment: geocodingLoading ? <CircularProgress size={20} /> : null
+                }}
               />
             </Grid>
             <Grid item xs={12}>

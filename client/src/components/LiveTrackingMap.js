@@ -28,7 +28,9 @@ import {
 } from '@mui/icons-material';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { volunteerAssignmentAPI } from '../utils/volunteerAssignmentAPI';
+import volunteerAssignmentAPI from '../utils/volunteerAssignmentAPI';
+import api from '../utils/api';
+import geocodingService from '../services/geocodingService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import './LiveTrackingMap.css';
@@ -72,10 +74,62 @@ const createCustomIcon = (color, status, isHighlighted = false) => {
   });
 };
 
+// Custom flag icon for events
+const createEventFlagIcon = (status, isHighlighted = false) => {
+  const color = status === 'פעיל' ? '#e74c3c' : 
+               status === 'הוקצה' ? '#f39c12' : 
+               status === 'בטיפול' ? '#3498db' : '#2ecc71';
+  
+  const iconHtml = `
+    <div style="
+      background-color: ${color};
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: ${isHighlighted ? '4px solid #ff4081' : '3px solid white'};
+      box-shadow: ${isHighlighted ? '0 4px 16px rgba(255,64,129,0.6)' : '0 3px 10px rgba(0,0,0,0.4)'};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+      ${isHighlighted ? 'animation: pulse 2s infinite;' : ''}
+      position: relative;
+    ">
+      🚩
+      <div style="
+        position: absolute;
+        bottom: -2px;
+        right: -2px;
+        background-color: white;
+        border-radius: 50%;
+        width: 12px;
+        height: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8px;
+        color: ${color};
+        font-weight: bold;
+      ">!</div>
+    </div>
+  `;
+  
+  return L.divIcon({
+    html: iconHtml,
+    className: 'custom-event-marker',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18]
+  });
+};
+
 const LiveTrackingMap = () => {
   const { user } = useAuth();
   const { onlineUsers } = useSocket();
   const [activeTracking, setActiveTracking] = useState([]);
+  const [activeEvents, setActiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentTab, setCurrentTab] = useState(0);
@@ -109,6 +163,61 @@ const LiveTrackingMap = () => {
     return null;
   };
 
+  // Function to update event coordinates when flag is dragged
+  const updateEventCoordinates = async (eventId, newLat, newLng) => {
+    try {
+      console.log(`🚩 Updating event ${eventId} coordinates to:`, { lat: newLat, lng: newLng });
+      
+      // Get the new address for the coordinates using reverse geocoding
+      console.log('🔄 Getting address for new coordinates...');
+      const newAddress = await geocodingService.coordinatesToAddress(newLat, newLng);
+      
+      // Prepare update data
+      const updateData = {
+        event_latitude: newLat,
+        event_longitude: newLng
+      };
+      
+      // Include address if reverse geocoding was successful
+      if (newAddress) {
+        updateData.full_address = newAddress;
+        console.log('✅ New address found:', newAddress);
+      } else {
+        console.log('⚠️ Could not get address for coordinates, updating coordinates only');
+      }
+      
+      // Update the event coordinates (and address) via API
+      const response = await api.put(`/api/admin/events/${eventId}`, updateData);
+
+      console.log('✅ Event updated successfully');
+      
+      // Update local state to reflect the change
+      setActiveEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId 
+            ? { 
+                ...event, 
+                event_latitude: newLat, 
+                event_longitude: newLng,
+                ...(newAddress && { full_address: newAddress })
+              }
+            : event
+        )
+      );
+      
+      // Show success message with address info
+      const message = newAddress 
+        ? `📍 מיקום האירוע עודכן בהצלחה!\n🏠 כתובת חדשה: ${newAddress}`
+        : '📍 קואורדינטות האירוע עודכנו בהצלחה!';
+      
+      alert(message);
+
+    } catch (error) {
+      console.error('❌ Error updating event coordinates:', error);
+      alert('❌ שגיאה בעדכון מיקום האירוע');
+    }
+  };
+
   // Security check - only allow specific command roles
   const allowedRoles = ['מוקדן', 'מפקד משל"ט', 'פיקוד יחידה', 'אדמין', 'מפתח'];
   
@@ -137,12 +246,48 @@ const LiveTrackingMap = () => {
   const loadActiveTracking = async () => {
     try {
       setLoading(true);
-      const tracking = await volunteerAssignmentAPI.getActiveTracking();
+      
+      // Load both tracking data and active events with coordinates
+      const [tracking, events] = await Promise.all([
+        volunteerAssignmentAPI.getActiveTracking(),
+        volunteerAssignmentAPI.getActiveEventsWithCoordinates()
+      ]);
+      
+      // DEBUG: Let's also check regular events to see what exists
+      try {
+        const allEventsResponse = await fetch('/api/admin/events', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const allEvents = await allEventsResponse.json();
+        console.log('🔍 DEBUG - All events in database:', allEvents);
+        console.log('🔍 DEBUG - Active events:', allEvents.filter(e => 
+          ['דווח', 'פעיל', 'הוקצה', 'בטיפול'].includes(e.event_status)
+        ));
+        console.log('🔍 DEBUG - Events with any coordinates:', allEvents.filter(e => 
+          e.event_latitude || e.event_longitude
+        ));
+      } catch (debugError) {
+        console.log('🔍 DEBUG - Error fetching all events:', debugError);
+      }
+      
+      console.log('🗺️ Loaded active events for map:', events);
+      console.log('🗺️ Total events loaded:', events.length);
+      console.log('🗺️ Events with coordinates:', events.filter(e => e.event_latitude && e.event_longitude));
+      console.log('🗺️ Valid coordinate events:', events.filter(e => 
+        e.event_latitude && 
+        e.event_longitude && 
+        !isNaN(parseFloat(e.event_latitude)) && 
+        !isNaN(parseFloat(e.event_longitude))
+      ));
+      
       setActiveTracking(tracking);
+      setActiveEvents(events);
       setError(null);
     } catch (err) {
-      console.error('Error loading active tracking:', err);
-      setError('שגיאה בטעינת נתוני מעקב');
+      console.error('Error loading active tracking and events:', err);
+      setError('שגיאה בטעינת נתוני מעקב ואירועים');
     } finally {
       setLoading(false);
     }
@@ -276,34 +421,59 @@ const LiveTrackingMap = () => {
   }
 
   return (
-    <Box sx={{ height: '100%' }}>
-      <Grid container spacing={2} sx={{ height: '100%' }}>
+    <Box sx={{ 
+      height: { xs: 'auto', md: '100%' },
+      minHeight: { xs: '100vh', md: 'auto' }
+    }}>
+      <Grid container spacing={{ xs: 1, md: 2 }} sx={{ 
+        height: { xs: 'auto', md: '100%' },
+        flexDirection: { xs: 'column-reverse', md: 'row' }
+      }}>
         {/* Left Panel - User Lists */}
         <Grid item xs={12} md={4}>
           <Card sx={{ 
-            borderRadius: 3,
+            borderRadius: { xs: 2, md: 3 },
             border: '1px solid #e0e6ed',
-            height: '100%',
+            height: { xs: 'auto', md: '100%' },
+            maxHeight: { xs: '400px', md: 'none' },
             display: 'flex',
             flexDirection: 'column'
           }}>
-            <CardContent sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50' }}>
-                  � רשימת משתמשים
+            <CardContent sx={{ 
+              p: { xs: 2, md: 3 }, 
+              flexGrow: 1, 
+              display: 'flex', 
+              flexDirection: 'column' 
+            }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                mb: 2,
+                flexWrap: { xs: 'wrap', md: 'nowrap' },
+                gap: { xs: 1, md: 0 }
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 600, 
+                  color: '#2c3e50',
+                  fontSize: { xs: '1.1rem', md: '1.25rem' }
+                }}>
+                  📊 רשימת משתמשים
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Chip 
                     label={`${onlineUsers.length} מחוברים`}
                     color="success"
                     variant="outlined"
                     size="small"
+                    sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}
                   />
                   <Chip 
                     label={`${activeTracking.length} במשימות`}
                     color="primary"
                     variant="outlined"
                     size="small"
+                    sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}
                   />
                 </Box>
               </Box>
@@ -316,20 +486,44 @@ const LiveTrackingMap = () => {
 
               {/* Tabs for switching between views */}
               <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-                <Tabs value={currentTab} onChange={handleTabChange}>
+                <Tabs 
+                  value={currentTab} 
+                  onChange={handleTabChange}
+                  variant="fullWidth"
+                  sx={{
+                    '& .MuiTab-root': {
+                      fontSize: { xs: '0.8rem', md: '0.875rem' },
+                      minHeight: { xs: 40, md: 48 }
+                    }
+                  }}
+                >
                   <Tab 
                     label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <OnlineIcon sx={{ fontSize: 16 }} />
-                        מחוברים ({onlineUsers.length})
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: { xs: 0.5, md: 1 },
+                        flexDirection: { xs: 'column', sm: 'row' }
+                      }}>
+                        <OnlineIcon sx={{ fontSize: { xs: 14, md: 16 } }} />
+                        <span style={{ fontSize: 'inherit' }}>
+                          מחוברים ({onlineUsers.length})
+                        </span>
                       </Box>
                     } 
                   />
                   <Tab 
                     label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CarIcon sx={{ fontSize: 16 }} />
-                        במשימות ({activeTracking.length})
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: { xs: 0.5, md: 1 },
+                        flexDirection: { xs: 'column', sm: 'row' }
+                      }}>
+                        <CarIcon sx={{ fontSize: { xs: 14, md: 16 } }} />
+                        <span style={{ fontSize: 'inherit' }}>
+                          במשימות ({activeTracking.length})
+                        </span>
                       </Box>
                     } 
                   />
@@ -337,7 +531,11 @@ const LiveTrackingMap = () => {
               </Box>
 
               {/* Lists Container */}
-              <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+              <Box sx={{ 
+                flexGrow: 1, 
+                overflow: 'auto',
+                maxHeight: { xs: '300px', md: 'none' }
+              }}>
                 {/* Online Users Tab */}
                 {currentTab === 0 && (
                   <Box>
@@ -361,8 +559,8 @@ const LiveTrackingMap = () => {
                           <React.Fragment key={onlineUser.id}>
                             <ListItem 
                               sx={{ 
-                                px: 0, 
-                                py: 2,
+                                px: { xs: 1, md: 0 }, 
+                                py: { xs: 1.5, md: 2 },
                                 borderRadius: 2,
                                 cursor: 'pointer',
                                 backgroundColor: highlightedUser === onlineUser.id ? '#e3f2fd' : 'transparent',
@@ -542,9 +740,24 @@ const LiveTrackingMap = () => {
               </Box>
               
               {/* Footer with last update info */}
-              <Box sx={{ mt: 2, p: 2, backgroundColor: '#f8f9fa', borderRadius: 2 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <TimeIcon sx={{ fontSize: 14 }} />
+              <Box sx={{ 
+                mt: 2, 
+                p: { xs: 1.5, md: 2 }, 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: 2 
+              }}>
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 0.5,
+                    fontSize: { xs: '0.65rem', md: '0.75rem' },
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <TimeIcon sx={{ fontSize: { xs: 12, md: 14 } }} />
                   עדכון אחרון: {new Date().toLocaleTimeString('he-IL')} • 
                   {currentTab === 0 ? ' מתעדכן בזמן אמת' : ' מתעדכן כל 30 שניות'}
                 </Typography>
@@ -556,30 +769,61 @@ const LiveTrackingMap = () => {
         {/* Right Panel - Map */}
         <Grid item xs={12} md={8}>
           <Card sx={{ 
-            borderRadius: 3,
+            borderRadius: { xs: 2, md: 3 },
             border: '1px solid #e0e6ed',
-            height: '100%',
+            height: { xs: '500px', md: '100%' },
+            minHeight: { xs: '500px', md: 'auto' },
             display: 'flex',
             flexDirection: 'column'
           }}>
-            <CardContent sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c3e50' }}>
+            <CardContent sx={{ 
+              p: { xs: 2, md: 3 }, 
+              flexGrow: 1, 
+              display: 'flex', 
+              flexDirection: 'column' 
+            }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                mb: 2,
+                flexWrap: { xs: 'wrap', md: 'nowrap' },
+                gap: { xs: 1, md: 0 }
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 600, 
+                  color: '#2c3e50',
+                  fontSize: { xs: '1.1rem', md: '1.25rem' }
+                }}>
                   🗺️ מפת מעקב חי
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Chip 
                     label={`${usersWithLocations.length} מיקומים במפה`}
                     color="info"
                     variant="outlined"
                     size="small"
+                    sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}
+                  />
+                  <Chip 
+                    label={`${activeEvents.length} אירועים פעילים`}
+                    color="error"
+                    variant="outlined"
+                    size="small"
+                    sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}
                   />
                 </Box>
               </Box>
 
               {/* Map Container */}
-              <Box sx={{ flexGrow: 1, borderRadius: 2, overflow: 'hidden', minHeight: '400px' }}>
-                {usersWithLocations.length === 0 ? (
+              <Box sx={{ 
+                flexGrow: 1, 
+                borderRadius: 2, 
+                overflow: 'hidden', 
+                minHeight: { xs: '400px', md: '400px' },
+                height: { xs: '450px', md: 'auto' }
+              }}>
+                {usersWithLocations.length === 0 && activeEvents.length === 0 ? (
                   <Box sx={{ 
                     height: '100%',
                     display: 'flex',
@@ -594,7 +838,8 @@ const LiveTrackingMap = () => {
                       אין נתוני מיקום זמינים
                     </Typography>
                     <Typography variant="body2" textAlign="center">
-                      כאשר משתמשים יהיו עם מיקומי GPS פעילים,<br />
+                      כאשר משתמשים יהיו עם מיקומי GPS פעילים<br />
+                      או אירועים עם קואורדינטות,<br />
                       הם יופיעו כאן על המפה
                     </Typography>
                   </Box>
@@ -603,6 +848,13 @@ const LiveTrackingMap = () => {
                     center={mapCenter}
                     zoom={mapZoom}
                     style={{ height: '100%', width: '100%' }}
+                    touchZoom={true}
+                    doubleClickZoom={true}
+                    scrollWheelZoom={true}
+                    dragging={true}
+                    zoomControl={true}
+                    tap={true}
+                    touchExtend={1}
                   >
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -657,6 +909,84 @@ const LiveTrackingMap = () => {
                                 )}
                               </>
                             )}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                    
+                    {/* Event Flag Markers */}
+                    {activeEvents
+                      .filter(event => 
+                        event.event_latitude && 
+                        event.event_longitude && 
+                        !isNaN(parseFloat(event.event_latitude)) && 
+                        !isNaN(parseFloat(event.event_longitude))
+                      )
+                      .map((event) => (
+                      <Marker
+                        key={`event_${event.id}`}
+                        position={[parseFloat(event.event_latitude), parseFloat(event.event_longitude)]}
+                        icon={createEventFlagIcon(event.event_status)}
+                        draggable={true}
+                        eventHandlers={{
+                          dragend: (e) => {
+                            const marker = e.target;
+                            const position = marker.getLatLng();
+                            console.log(`🚩 Flag dragged for event ${event.id}:`, position);
+                            updateEventCoordinates(event.id, position.lat, position.lng);
+                          }
+                        }}
+                      >
+                        <Popup>
+                          <div className="event-popup">
+                            <h4>🚩 {event.title}</h4>
+                            <div 
+                              className="status-chip"
+                              style={{ 
+                                backgroundColor: event.event_status === 'פעיל' ? '#e74c3c' : 
+                                                event.event_status === 'הוקצה' ? '#f39c12' : 
+                                                event.event_status === 'בטיפול' ? '#3498db' : '#2ecc71',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '12px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                marginBottom: '8px',
+                                display: 'inline-block'
+                              }}
+                            >
+                              {event.event_status}
+                            </div>
+                            
+                            {/* Draggable hint */}
+                            <div style={{
+                              backgroundColor: '#f8f9fa',
+                              padding: '6px 8px',
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              color: '#6c757d',
+                              marginBottom: '8px',
+                              border: '1px dashed #dee2e6'
+                            }}>
+                              🖱️ ניתן לגרור את הדגל למיקום אחר<br/>
+                              📍 הכתובת תתעדכן אוטומטית
+                            </div>
+                            
+                            <div className="info-item">
+                              <strong>📍 כתובת:</strong> {event.full_address}
+                            </div>
+                            <div className="info-item">
+                              <strong>🚗 רכב:</strong> {event.license_plate} ({event.car_model} {event.car_color})
+                            </div>
+                            <div className="info-item">
+                              <strong>📊 מצב רכב:</strong> {event.car_status}
+                            </div>
+                            <div className="info-item">
+                              <strong>👨‍💼 יוצר:</strong> {event.creator?.full_name || event.creator?.username || 'לא ידוע'}
+                            </div>
+                            <div className="info-item">
+                              <strong>📅 נוצר:</strong> {new Date(event.created_at).toLocaleDateString('he-IL')} {new Date(event.created_at).toLocaleTimeString('he-IL')}
+                            </div>
                           </div>
                         </Popup>
                       </Marker>
