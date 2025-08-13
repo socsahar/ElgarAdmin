@@ -216,6 +216,7 @@ const LiveTrackingMap = () => {
   const [mapZoom, setMapZoom] = useState(10);
   const [focusTarget, setFocusTarget] = useState(null);
   const [highlightedUser, setHighlightedUser] = useState(null);
+  const [highlightTimeout, setHighlightTimeout] = useState(null);
   
   // Flag movement confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -420,6 +421,15 @@ const LiveTrackingMap = () => {
     console.log('🔄 Active tracking count:', activeTracking.length);
   }, [activeTracking]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimeout) {
+        clearTimeout(highlightTimeout);
+      }
+    };
+  }, [highlightTimeout]);
+
   const loadActiveTracking = async () => {
     try {
       setLoading(true);
@@ -506,10 +516,18 @@ const LiveTrackingMap = () => {
       setFocusTarget({ lat, lng });
       setHighlightedUser(userId);
       
-      // Clear highlight after 5 seconds
-      setTimeout(() => {
+      // Clear any existing timeout
+      if (highlightTimeout) {
+        clearTimeout(highlightTimeout);
+      }
+      
+      // Set new timeout to clear highlight after 30 seconds (longer duration)
+      const newTimeout = setTimeout(() => {
         setHighlightedUser(null);
-      }, 5000);
+        setHighlightTimeout(null);
+      }, 30000);
+      
+      setHighlightTimeout(newTimeout);
     } else {
       console.log('DEBUG: Invalid coordinates for user focus:', { lat, lng, userItem });
     }
@@ -626,8 +644,24 @@ const LiveTrackingMap = () => {
     console.log('DEBUG: Tracking users count:', activeTracking.length);
     console.log('DEBUG: Final users array:', users);
     console.log('DEBUG: Users with valid coordinates:', users.filter(u => u.latitude && u.longitude));
+    
+    // Check if highlighted user is still available, if not clear the highlight
+    if (highlightedUser) {
+      const highlightedUserExists = users.some(user => user.volunteer_id === highlightedUser) ||
+                                   onlineUsers.some(user => user.id === highlightedUser);
+      
+      if (!highlightedUserExists) {
+        console.log('DEBUG: Highlighted user no longer available, clearing highlight');
+        setHighlightedUser(null);
+        if (highlightTimeout) {
+          clearTimeout(highlightTimeout);
+          setHighlightTimeout(null);
+        }
+      }
+    }
+    
     return users;
-  }, [onlineUsers, activeTracking]);
+  }, [onlineUsers, activeTracking, highlightedUser, highlightTimeout]);
 
   if (loading && activeTracking.length === 0 && currentTab === 1) {
     return (
@@ -1001,7 +1035,7 @@ const LiveTrackingMap = () => {
                 >
                   <TimeIcon sx={{ fontSize: { xs: 12, md: 14 } }} />
                   עדכון אחרון: {new Date().toLocaleTimeString('he-IL')} • 
-                  {currentTab === 0 ? ' מתעדכן בזמן אמת' : ' מתעדכן כל 30 שניות'}
+                  {currentTab === 0 ? ' מתעדכן בזמן אמת' : ' מתעדכן כל 10 שניות'}
                 </Typography>
               </Box>
             </CardContent>
