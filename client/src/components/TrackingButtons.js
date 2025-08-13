@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Button, Typography, Alert, CircularProgress, Chip } from '@mui/material';
 import { LocationOn as LocationIcon, AccessTime as TimeIcon } from '@mui/icons-material';
 import { volunteerAssignmentAPI } from '../utils/volunteerAssignmentAPI';
@@ -16,6 +16,23 @@ const TrackingButtons = ({ assignment, currentUser, onStatusUpdate }) => {
     isAssignedVolunteer: assignment?.volunteer_id === currentUser?.id
   });
 
+  // Define fetchTrackingInfo before using it in useEffect
+  const fetchTrackingInfo = useCallback(async () => {
+    try {
+      const info = await volunteerAssignmentAPI.getTrackingInfo(assignment.id);
+      setTrackingInfo(info);
+    } catch (err) {
+      console.error('Error fetching tracking info:', err);
+    }
+  }, [assignment.id]);
+
+  // Fetch tracking info on component mount - MUST be before any returns
+  useEffect(() => {
+    if (assignment?.id && assignment.volunteer_id === currentUser?.id) {
+      fetchTrackingInfo();
+    }
+  }, [assignment?.id, assignment?.volunteer_id, currentUser?.id, fetchTrackingInfo]);
+
   // Only show for the assigned volunteer
   const isAssignedVolunteer = assignment.volunteer_id === currentUser.id;
   
@@ -23,22 +40,6 @@ const TrackingButtons = ({ assignment, currentUser, onStatusUpdate }) => {
     console.log('TrackingButtons: Not showing buttons - isAssignedVolunteer:', isAssignedVolunteer, 'assignment exists:', !!assignment);
     return null;
   }
-
-  // Fetch tracking info on component mount
-  useEffect(() => {
-    if (assignment.id) {
-      fetchTrackingInfo();
-    }
-  }, [assignment.id]);
-
-  const fetchTrackingInfo = async () => {
-    try {
-      const info = await volunteerAssignmentAPI.getTrackingInfo(assignment.id);
-      setTrackingInfo(info);
-    } catch (err) {
-      console.error('Error fetching tracking info:', err);
-    }
-  };
 
   const getCurrentLocation = () => {
     return new Promise((resolve, reject) => {

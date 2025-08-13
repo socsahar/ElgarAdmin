@@ -437,6 +437,9 @@ const LiveTrackingMap = () => {
       }
     }, [highlightedUser]);
 
+    return null; // MapFocusController renders nothing visible
+  };
+
   // Function to handle flag movement confirmation
   const handleFlagDragStart = (event, marker) => {
     // Store original position when drag starts
@@ -560,10 +563,6 @@ const LiveTrackingMap = () => {
       console.error('❌ Error updating event coordinates:', error);
       alert('❌ שגיאה בעדכון מיקום האירוע');
     }
-  };
-
-  // Close MapFocusController component properly
-  return null;
   };
 
   // Removed excessive debug logging that was causing performance issues
