@@ -633,22 +633,22 @@ const LiveTrackingMap = () => {
     }
   }, []);
 
-  // Initialize component and set up refresh interval with performance optimization
+  // Initialize component and set up refresh interval with FREE TIER optimization
   useEffect(() => {
     loadActiveTracking();
     
-    // Performance optimization: adjust refresh interval based on user count
+    // FREE TIER optimization: Much longer intervals to reduce server load
     const getRefreshInterval = () => {
-      if (onlineUsers.length > 50) return 180000; // 3 minutes for many users
-      if (onlineUsers.length > 30) return 150000; // 2.5 minutes for moderate users
-      return 120000; // 2 minutes for few users
+      if (onlineUsers.length > 20) return 300000; // 5 minutes for many users
+      if (onlineUsers.length > 10) return 240000; // 4 minutes for moderate users
+      return 180000; // 3 minutes minimum for free tier
     };
     
     const interval = setInterval(loadActiveTracking, getRefreshInterval());
     return () => clearInterval(interval);
   }, [loadActiveTracking, onlineUsers.length]);
 
-  // Throttled map update handler for performance optimization
+  // Throttled map update handler for FREE TIER performance optimization
   const throttledMapUpdate = useCallback(
     debounce(() => {
       // Gentle map update without forced re-render
@@ -659,7 +659,7 @@ const LiveTrackingMap = () => {
           console.warn('Map update warning:', error);
         }
       }
-    }, onlineUsers.length > 20 ? 2000 : 1000), // Longer throttling with many users
+    }, onlineUsers.length > 10 ? 5000 : 3000), // Much longer throttling for free tier
     [onlineUsers.length]
   );
 
@@ -765,7 +765,7 @@ const LiveTrackingMap = () => {
     const trackingUserIds = new Set(activeTracking.map(t => t.volunteer_id));
     
     // Performance optimization: limit the number of users shown on map to prevent overwhelming
-    const MAX_MAP_USERS = 50; // Limit to 50 users to maintain performance
+    const MAX_MAP_USERS = 20; // Reduced for Render free tier - limit to 20 users max
     let userCount = 0;
     
     // Add online users (if they have last known location and are not currently tracking)
@@ -846,7 +846,7 @@ const LiveTrackingMap = () => {
     ]);
     
     let offlineUserCount = 0;
-    const MAX_OFFLINE_USERS = 20; // Limit offline users for performance
+    const MAX_OFFLINE_USERS = 5; // Reduced for free tier - limit offline users for performance
     
     lastKnownUsers.forEach((lastUser, userId) => {
       if (offlineUserCount >= MAX_OFFLINE_USERS) return; // Performance limit
@@ -1516,7 +1516,7 @@ const LiveTrackingMap = () => {
                                lat >= -90 && lat <= 90 &&
                                lng >= -180 && lng <= 180;
                       })
-                      .slice(0, onlineUsers.length > 50 ? 50 : usersWithLocations.length) // Performance limit
+                      .slice(0, onlineUsers.length > 10 ? 10 : usersWithLocations.length) // FREE TIER: Much stricter performance limit
                       .map((userLocation) => {
                         try {
                           return (

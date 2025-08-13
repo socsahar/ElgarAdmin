@@ -82,14 +82,16 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration - UPDATED FOR RENDER DEPLOYMENT
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:3001',
     process.env.CLIENT_URL,
-    'https://elgaradmin-frontend.onrender.com'
+    'https://elgaradmin-frontend.onrender.com',
+    // Add your actual frontend Render URL here
+    'https://your-frontend-app.onrender.com'
   ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -236,21 +238,24 @@ const io = socketIo(server, {
     origin: [
       'http://localhost:3000',
       'http://127.0.0.1:3000',
-      process.env.CLIENT_URL
+      process.env.CLIENT_URL,
+      'https://elgaradmin-frontend.onrender.com',
+      // Add your actual frontend Render URL here
+      'https://your-frontend-app.onrender.com'
     ].filter(Boolean),
     methods: ['GET', 'POST'],
     credentials: true
   },
-  // Render optimization settings
-  transports: ['polling', 'websocket'],
+  // FREE TIER OPTIMIZATION: Polling only for better stability
+  transports: ['polling'],
   allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  pingTimeout: 120000, // Much longer for free tier
+  pingInterval: 30000, // Less frequent
   maxHttpBufferSize: 1e6,
   // Better handling for Render's infrastructure
-  upgradeTimeout: 30000,
+  upgradeTimeout: 60000,
   // Allow more time for connections on free tier
-  connectTimeout: 60000
+  connectTimeout: 120000
 });
 
 // Make io instance available to routes

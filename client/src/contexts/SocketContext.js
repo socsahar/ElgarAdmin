@@ -47,20 +47,20 @@ export const SocketProvider = ({ children }) => {
           },
           autoConnect: true,
           reconnection: true,
-          reconnectionDelay: 3000, // Longer delay for Render's infrastructure
-          reconnectionAttempts: 15, // More attempts for free tier
-          timeout: 60000, // Much longer timeout for Render
+          reconnectionDelay: 5000, // Longer delay for Render's free tier infrastructure
+          reconnectionAttempts: 10, // Fewer attempts to reduce server load
+          timeout: 120000, // Much longer timeout for Render free tier
           forceNew: false,
-          // Use polling first for better Render compatibility
-          transports: ['polling', 'websocket'],
-          upgrade: true,
+          // RENDER FREE TIER OPTIMIZATION: Use polling primarily for better stability
+          transports: ['polling'],
+          upgrade: false, // Disable websocket upgrade for stability
           // Render-specific optimizations
           closeOnBeforeunload: false,
           // Additional options for Render stability
           rememberUpgrade: false,
           maxHttpBufferSize: 1e6,
-          pingTimeout: 60000,
-          pingInterval: 25000,
+          pingTimeout: 120000, // Much longer for free tier
+          pingInterval: 30000, // Less frequent pings
           // Force new connection for troubleshooting
           query: {
             userId: user.id,

@@ -29,7 +29,7 @@ if (!supabaseUrl.startsWith('https://') || !supabaseUrl.includes('.supabase.co')
 console.log('✅ Supabase environment variables validated');
 console.log('🔗 Connecting to:', supabaseUrl);
 
-// Client for regular operations (with RLS)
+// Client for regular operations (with RLS) - OPTIMIZED FOR FREE TIER
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -39,10 +39,19 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       'User-Agent': 'ElgarAdmin/1.0.0'
     }
+  },
+  // FREE TIER OPTIMIZATION
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 2 // Much lower for free tier
+    }
   }
 });
 
-// Admin client for operations that bypass RLS
+// Admin client for operations that bypass RLS - OPTIMIZED FOR FREE TIER
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
@@ -51,6 +60,15 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   global: {
     headers: {
       'User-Agent': 'ElgarAdmin-Admin/1.0.0'
+    }
+  },
+  // FREE TIER OPTIMIZATION
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 2 // Much lower for free tier
     }
   }
 });
