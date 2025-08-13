@@ -545,14 +545,6 @@ const LiveTrackingMap = () => {
     );
   }
 
-  useEffect(() => {
-    loadActiveTracking();
-    
-    // Increase refresh interval to 2 minutes to prevent interference with real-time updates
-    const interval = setInterval(loadActiveTracking, 120000);
-    return () => clearInterval(interval);
-  }, [loadActiveTracking]);
-
   // Removed excessive debug logging that was causing performance issues
 
   // Cleanup timeout on unmount
@@ -620,6 +612,15 @@ const LiveTrackingMap = () => {
       setLoading(false);
     }
   }, []);
+
+  // Initialize component and set up refresh interval
+  useEffect(() => {
+    loadActiveTracking();
+    
+    // Increase refresh interval to 2 minutes to prevent interference with real-time updates
+    const interval = setInterval(loadActiveTracking, 120000);
+    return () => clearInterval(interval);
+  }, [loadActiveTracking]);
 
   // Function to focus on a user when clicked in the list - toggle behavior with persistent focus
   const focusOnUser = useCallback((userItem) => {
