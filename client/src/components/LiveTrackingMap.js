@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -103,7 +103,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom marker icons
+// Optimized custom marker icons
 const createCustomIcon = (color, status, isHighlighted = false) => {
   const iconHtml = `
     <div style="
@@ -313,10 +313,11 @@ const LiveTrackingMap = () => {
     marker: null
   });
 
-  // Map Focus Controller Component
-  const MapFocusController = ({ focusTarget, onFocusComplete }) => {
+  // Map Focus Controller Component with persistent tracking
+  const MapFocusController = ({ focusTarget, onFocusComplete, highlightedUser, usersWithLocations }) => {
     const map = useMap();
 
+    // Initial focus when user is selected
     useEffect(() => {
       if (focusTarget && focusTarget.lat && focusTarget.lng) {
         map.setView([focusTarget.lat, focusTarget.lng], 16, {
@@ -334,6 +335,29 @@ const LiveTrackingMap = () => {
         return () => clearTimeout(timer);
       }
     }, [map, focusTarget, onFocusComplete]);
+
+    // Continuous tracking of highlighted user
+    useEffect(() => {
+      if (highlightedUser && usersWithLocations) {
+        const highlightedUserData = usersWithLocations.find(u => u.volunteer_id === highlightedUser);
+        
+        if (highlightedUserData && highlightedUserData.latitude && highlightedUserData.longitude) {
+          const currentCenter = map.getCenter();
+          const userLat = highlightedUserData.latitude;
+          const userLng = highlightedUserData.longitude;
+          
+          // Only update map position if user has moved significantly (more than ~50 meters)
+          const distance = map.distance([currentCenter.lat, currentCenter.lng], [userLat, userLng]);
+          
+          if (distance > 50) {
+            map.setView([userLat, userLng], map.getZoom(), {
+              animate: true,
+              duration: 1
+            });
+          }
+        }
+      }
+    }, [map, highlightedUser, usersWithLocations]);
 
     return null;
   };
@@ -483,27 +507,12 @@ const LiveTrackingMap = () => {
   useEffect(() => {
     loadActiveTracking();
     
-    // Refresh every 10 seconds for better real-time tracking
-    const interval = setInterval(loadActiveTracking, 10000);
+    // Reduced refresh interval to 30 seconds to prevent performance issues
+    const interval = setInterval(loadActiveTracking, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Debug effect to track onlineUsers changes
-  useEffect(() => {
-    console.log('🔄 Online users changed:', onlineUsers);
-    console.log('🔄 Online users count:', onlineUsers.length);
-    const usersWithLocation = onlineUsers.filter(u => u.last_latitude && u.last_longitude);
-    console.log('🔄 Online users with location:', usersWithLocation);
-    console.log('🔄 Online users with valid coords:', usersWithLocation.filter(u => 
-      !isNaN(parseFloat(u.last_latitude)) && !isNaN(parseFloat(u.last_longitude))
-    ));
-  }, [onlineUsers]);
-
-  // Debug effect to track activeTracking changes
-  useEffect(() => {
-    console.log('🔄 Active tracking changed:', activeTracking);
-    console.log('🔄 Active tracking count:', activeTracking.length);
-  }, [activeTracking]);
+  // Removed excessive debug logging that was causing performance issues
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -514,7 +523,8 @@ const LiveTrackingMap = () => {
     };
   }, [highlightTimeout]);
 
-  const loadActiveTracking = async () => {
+  // Throttled version of loadActiveTracking to prevent excessive API calls
+  const loadActiveTracking = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -524,40 +534,10 @@ const LiveTrackingMap = () => {
         volunteerAssignmentAPI.getActiveEventsWithCoordinates()
       ]);
       
-      // DEBUG: Let's also check regular events to see what exists
-      try {
-        const allEventsResponse = await fetch('/api/admin/events', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        const allEvents = await allEventsResponse.json();
-        console.log('🔍 DEBUG - All events in database:', allEvents);
-        console.log('🔍 DEBUG - Active events:', allEvents.filter(e => 
-          ['דווח', 'פעיל', 'הוקצה', 'בטיפול'].includes(e.event_status)
-        ));
-        console.log('🔍 DEBUG - Events with any coordinates:', allEvents.filter(e => 
-          e.event_latitude || e.event_longitude
-        ));
-      } catch (debugError) {
-        console.log('🔍 DEBUG - Error fetching all events:', debugError);
-      }
-      
-      console.log('🗺️ Loaded active events for map:', events);
-      console.log('🗺️ Total events loaded:', events.length);
-      console.log('🗺️ Events with coordinates:', events.filter(e => e.event_latitude && e.event_longitude));
-      console.log('🗺️ Valid coordinate events:', events.filter(e => 
-        e.event_latitude && 
-        e.event_longitude && 
-        !isNaN(parseFloat(e.event_latitude)) && 
-        !isNaN(parseFloat(e.event_longitude))
-      ));
-      
       // Only update state if data actually changed to prevent unnecessary re-renders
       setActiveTracking(prevTracking => {
         const trackingChanged = JSON.stringify(prevTracking) !== JSON.stringify(tracking);
         if (trackingChanged) {
-          console.log('🔄 Active tracking data changed, updating...');
           return tracking;
         }
         return prevTracking;
@@ -566,7 +546,6 @@ const LiveTrackingMap = () => {
       setActiveEvents(prevEvents => {
         const eventsChanged = JSON.stringify(prevEvents) !== JSON.stringify(events);
         if (eventsChanged) {
-          console.log('🔄 Active events data changed, updating...');
           return events;
         }
         return prevEvents;
@@ -579,10 +558,10 @@ const LiveTrackingMap = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Function to focus on a user when clicked in the list
-  const focusOnUser = (userItem) => {
+  // Function to focus on a user when clicked in the list - toggle behavior with persistent focus
+  const focusOnUser = useCallback((userItem) => {
     let lat, lng, userId;
     
     // Check if it's an online user or active tracking
@@ -596,26 +575,31 @@ const LiveTrackingMap = () => {
       userId = userItem.volunteer_id;
     }
     
-    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-      setFocusTarget({ lat, lng });
-      setHighlightedUser(userId);
+    // If clicking on the same user that's already highlighted, deselect them
+    if (highlightedUser === userId) {
+      setHighlightedUser(null);
+      setFocusTarget(null);
       
       // Clear any existing timeout
       if (highlightTimeout) {
         clearTimeout(highlightTimeout);
-      }
-      
-      // Set new timeout to clear highlight after 30 seconds (longer duration)
-      const newTimeout = setTimeout(() => {
-        setHighlightedUser(null);
         setHighlightTimeout(null);
-      }, 30000);
-      
-      setHighlightTimeout(newTimeout);
-    } else {
-      console.log('DEBUG: Invalid coordinates for user focus:', { lat, lng, userItem });
+      }
+      return;
     }
-  };
+    
+    // Otherwise, focus on the new user with persistent selection
+    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+      setFocusTarget({ lat, lng });
+      setHighlightedUser(userId);
+      
+      // Clear any existing timeout - focus stays until manually deselected
+      if (highlightTimeout) {
+        clearTimeout(highlightTimeout);
+        setHighlightTimeout(null);
+      }
+    }
+  }, [highlightedUser, highlightTimeout]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -661,11 +645,11 @@ const LiveTrackingMap = () => {
     }
   };
 
-  const handleTabChange = (event, newValue) => {
+  const handleTabChange = useCallback((event, newValue) => {
     setCurrentTab(newValue);
-  };
+  }, []);
 
-  // Get all users with locations for map - memoized to prevent unnecessary recalculations
+  // Get all users with locations for map - optimized memoization to prevent unnecessary recalculations
   const usersWithLocations = useMemo(() => {
     const users = [];
     const trackingUserIds = new Set(activeTracking.map(t => t.volunteer_id));
@@ -747,12 +731,7 @@ const LiveTrackingMap = () => {
         console.log(`DEBUG: Keeping offline user ${lastUser.name} from last known position`);
       }
     });
-    
-    console.log('DEBUG: Online users count:', onlineUsers.length);
-    console.log('DEBUG: Tracking users count:', activeTracking.length);
-    console.log('DEBUG: Final users array:', users);
-    console.log('DEBUG: Live users:', users.filter(u => u.isLive).length);
-    console.log('DEBUG: Offline users (recent):', users.filter(u => !u.isLive).length);
+    // Removed excessive debug logging for better performance
     
     return users;
   }, [onlineUsers, activeTracking, lastKnownUsers]);
@@ -829,7 +808,7 @@ const LiveTrackingMap = () => {
       newMap.forEach((user, userId) => {
         if (user.lastSeen < fiveMinutesAgo) {
           newMap.delete(userId);
-          console.log(`DEBUG: Removed old user ${user.name} from last known positions`);
+          // Removed debug logging for performance
         }
       });
       
@@ -843,7 +822,7 @@ const LiveTrackingMap = () => {
       const highlightedUserExists = usersWithLocations.some(user => user.volunteer_id === highlightedUser);
       
       if (!highlightedUserExists) {
-        console.log('DEBUG: Highlighted user no longer available, clearing highlight');
+        // Removed debug logging for performance
         setHighlightedUser(null);
         if (highlightTimeout) {
           clearTimeout(highlightTimeout);
@@ -1031,8 +1010,11 @@ const LiveTrackingMap = () => {
                                 borderRadius: 2,
                                 cursor: 'pointer',
                                 backgroundColor: highlightedUser === onlineUser.id ? '#e3f2fd' : 'transparent',
+                                border: highlightedUser === onlineUser.id ? '2px solid #2196f3' : '2px solid transparent',
                                 '&:hover': { backgroundColor: '#f8f9fa' },
-                                opacity: onlineUser.isOffline ? 0.7 : 1
+                                opacity: onlineUser.isOffline ? 0.7 : 1,
+                                transform: highlightedUser === onlineUser.id ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'all 0.2s ease'
                               }}
                               onClick={() => focusOnUser(onlineUser)}
                             >
@@ -1105,9 +1087,10 @@ const LiveTrackingMap = () => {
                                       )}
                                       {(onlineUser.last_latitude && onlineUser.last_longitude) && (
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                          <FocusIcon sx={{ fontSize: 12, color: '#2196f3' }} />
-                                          <Typography variant="caption" color="#2196f3">
-                                            {onlineUser.isOffline ? 'מיקום אחרון' : 'לחץ למיקום במפה'}
+                                          <FocusIcon sx={{ fontSize: 12, color: highlightedUser === onlineUser.id ? '#ff4081' : '#2196f3' }} />
+                                          <Typography variant="caption" color={highlightedUser === onlineUser.id ? '#ff4081' : '#2196f3'}>
+                                            {highlightedUser === onlineUser.id ? 'נבחר - לחץ לביטול' : 
+                                             (onlineUser.isOffline ? 'מיקום אחרון' : 'לחץ למעקב')}
                                           </Typography>
                                         </Box>
                                       )}
@@ -1152,7 +1135,10 @@ const LiveTrackingMap = () => {
                                 borderRadius: 2,
                                 cursor: 'pointer',
                                 backgroundColor: highlightedUser === tracking.volunteer_id ? '#e3f2fd' : 'transparent',
-                                '&:hover': { backgroundColor: '#f8f9fa' }
+                                border: highlightedUser === tracking.volunteer_id ? '2px solid #2196f3' : '2px solid transparent',
+                                '&:hover': { backgroundColor: '#f8f9fa' },
+                                transform: highlightedUser === tracking.volunteer_id ? 'scale(1.02)' : 'scale(1)',
+                                transition: 'all 0.2s ease'
                               }}
                               onClick={() => focusOnUser(tracking)}
                             >
@@ -1223,9 +1209,9 @@ const LiveTrackingMap = () => {
                                       )}
                                       {(tracking.current_latitude && tracking.current_longitude) && (
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                          <FocusIcon sx={{ fontSize: 12, color: '#2196f3' }} />
-                                          <Typography variant="caption" color="#2196f3">
-                                            לחץ למיקום במפה
+                                          <FocusIcon sx={{ fontSize: 12, color: highlightedUser === tracking.volunteer_id ? '#ff4081' : '#2196f3' }} />
+                                          <Typography variant="caption" color={highlightedUser === tracking.volunteer_id ? '#ff4081' : '#2196f3'}>
+                                            {highlightedUser === tracking.volunteer_id ? 'נבחר - לחץ לביטול' : 'לחץ למעקב'}
                                           </Typography>
                                         </Box>
                                       )}
@@ -1519,10 +1505,12 @@ const LiveTrackingMap = () => {
                       </Marker>
                     ))}
                     
-                    {/* Focus Controller */}
+                    {/* Focus Controller with persistent tracking */}
                     <MapFocusController 
                       focusTarget={focusTarget} 
-                      onFocusComplete={() => setFocusTarget(null)} 
+                      onFocusComplete={() => setFocusTarget(null)}
+                      highlightedUser={highlightedUser}
+                      usersWithLocations={usersWithLocations}
                     />
                   </MapContainer>
                 )}
