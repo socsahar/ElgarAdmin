@@ -36,7 +36,7 @@ export const SocketProvider = ({ children }) => {
           socket.disconnect();
         }
         
-        const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+        const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'https://elgaradmin-backend.onrender.com';
         const newSocket = io(SOCKET_URL, {
           auth: {
             userId: user.id,
