@@ -300,19 +300,34 @@ const EventManagement = () => {
       const response = await volunteerAssignmentAPI.getActiveTracking();
       console.log('Active tracking response:', response);
       
-      // Filter to show only assignments for the current user, exclude completed tasks, and exclude closed events
-      const userAssignments = (response || []).filter(tracking => {
-        const isCurrentUser = tracking.volunteer_id === user?.id;
-        const isNotCompleted = tracking.status !== 'task_completed' && !tracking.completion_time;
-        const isEventOpen = tracking.event_status && !['הסתיים', 'בוטל'].includes(tracking.event_status);
-        const shouldShow = isCurrentUser && isNotCompleted && isEventOpen;
-        
-        console.log(`Tracking ${tracking.volunteer_name}: volunteer_id=${tracking.volunteer_id}, current_user_id=${user?.id}, isCurrentUser=${isCurrentUser}, status=${tracking.status}, event_status=${tracking.event_status}, isEventOpen=${isEventOpen}, completion_time=${tracking.completion_time}, shouldShow=${shouldShow}`);
-        return shouldShow;
-      });
+      // For command roles, show ALL active assignments, not just current user
+      let filteredAssignments;
       
-      console.log('Filtered user assignments:', userAssignments);
-      setTrackingOverview(userAssignments);
+      if (hasCommandAccess()) {
+        // Command roles see ALL active tracking
+        filteredAssignments = (response || []).filter(tracking => {
+          const isNotCompleted = tracking.status !== 'task_completed' && !tracking.completion_time;
+          const isEventOpen = tracking.event_status && !['הסתיים', 'בוטל'].includes(tracking.event_status);
+          const shouldShow = isNotCompleted && isEventOpen;
+          
+          console.log(`Command view - Tracking ${tracking.volunteer_name}: status=${tracking.status}, event_status=${tracking.event_status}, isEventOpen=${isEventOpen}, completion_time=${tracking.completion_time}, shouldShow=${shouldShow}`);
+          return shouldShow;
+        });
+      } else {
+        // Regular users see only their own assignments
+        filteredAssignments = (response || []).filter(tracking => {
+          const isCurrentUser = tracking.volunteer_id === user?.id;
+          const isNotCompleted = tracking.status !== 'task_completed' && !tracking.completion_time;
+          const isEventOpen = tracking.event_status && !['הסתיים', 'בוטל'].includes(tracking.event_status);
+          const shouldShow = isCurrentUser && isNotCompleted && isEventOpen;
+          
+          console.log(`User view - Tracking ${tracking.volunteer_name}: volunteer_id=${tracking.volunteer_id}, current_user_id=${user?.id}, isCurrentUser=${isCurrentUser}, status=${tracking.status}, event_status=${tracking.event_status}, isEventOpen=${isEventOpen}, completion_time=${tracking.completion_time}, shouldShow=${shouldShow}`);
+          return shouldShow;
+        });
+      }
+      
+      console.log('Filtered assignments:', filteredAssignments);
+      setTrackingOverview(filteredAssignments);
     } catch (error) {
       console.error('Error loading tracking overview:', error);
       setTrackingOverview([]);
@@ -323,7 +338,7 @@ const EventManagement = () => {
 
   // Check if user has command role access
   const hasCommandAccess = () => {
-    const allowedRoles = ['מוקדן', 'מפקד משל"ט', 'אדמין', 'מפקד יחידה', 'מפתח'];
+    const allowedRoles = ['מוקדן', 'מפקד משל"ט', 'פיקוד יחידה', 'אדמין', 'מפתח'];
     return user && allowedRoles.includes(user.role);
   };
 
@@ -748,13 +763,13 @@ const EventManagement = () => {
       </Box>
 
       {/* Tracking Overview for Command Roles */}
-      {hasCommandAccess() && !trackingLoading && trackingOverview && trackingOverview.length > 0 && (
+      {hasCommandAccess() && (
         <Card sx={{ mb: 3, border: '2px solid #2196F3', borderRadius: 3 }}>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TrendingUpIcon color="primary" />
-                המשימות שלי ({trackingOverview.length})
+                {hasCommandAccess() ? `מעקב פעיל (${trackingOverview.length})` : `המשימות שלי (${trackingOverview.length})`}
               </Typography>
               <Button
                 variant="outlined"
@@ -767,7 +782,13 @@ const EventManagement = () => {
               </Button>
             </Box>
             
-            <Grid container spacing={2}>
+            {trackingLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+                <Typography sx={{ ml: 2 }}>טוען נתוני מעקב...</Typography>
+              </Box>
+            ) : trackingOverview && trackingOverview.length > 0 ? (
+              <Grid container spacing={2}>
               {trackingOverview.map((tracking, index) => (
                 <Grid item xs={12} sm={6} md={4} key={tracking.assignment_id || index}>
                   <Card variant="outlined" sx={{ height: '100%', borderRadius: 2 }}>
@@ -831,6 +852,16 @@ const EventManagement = () => {
                 </Grid>
               ))}
             </Grid>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" color="text.secondary">
+                  אין מעקב פעיל כרגע
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  המעקב יופיע כאן כאשר מתנדבים יתחילו משימות
+                </Typography>
+              </Box>
+            )}
           </CardContent>
         </Card>
       )}

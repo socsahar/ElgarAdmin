@@ -15,7 +15,8 @@ import {
   Tabs,
   Tab,
   Grid,
-  Paper
+  Paper,
+  Avatar
 } from '@mui/material';
 import {
   LocationOn as LocationIcon,
@@ -71,6 +72,78 @@ const createCustomIcon = (color, status, isHighlighted = false) => {
     iconSize: [30, 30],
     iconAnchor: [15, 15],
     popupAnchor: [0, -15]
+  });
+};
+
+// Custom profile photo icon for users
+const createProfilePhotoIcon = (photoUrl, status, isHighlighted = false) => {
+  const defaultAvatar = '/api/placeholder/40/40'; // Fallback placeholder
+  const borderColor = status === 'tracking' ? '#e74c3c' : 
+                     status === 'arrived' ? '#2ecc71' : '#3498db';
+  
+  const iconHtml = `
+    <div style="
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: ${isHighlighted ? '4px solid #ff4081' : `3px solid ${borderColor}`};
+      box-shadow: ${isHighlighted ? '0 4px 16px rgba(255,64,129,0.6)' : '0 3px 10px rgba(0,0,0,0.4)'};
+      overflow: hidden;
+      background-color: #f0f0f0;
+      ${isHighlighted ? 'animation: pulse 2s infinite;' : ''}
+      position: relative;
+    ">
+      <img 
+        src="${photoUrl || defaultAvatar}" 
+        style="
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+        "
+        onerror="this.src='${defaultAvatar}'"
+      />
+      ${status === 'tracking' ? `
+        <div style="
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          background-color: #e74c3c;
+          border-radius: 50%;
+          width: 16px;
+          height: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          border: 2px solid white;
+        ">🚗</div>
+      ` : ''}
+      ${status === 'arrived' ? `
+        <div style="
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          background-color: #2ecc71;
+          border-radius: 50%;
+          width: 16px;
+          height: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          border: 2px solid white;
+        ">📍</div>
+      ` : ''}
+    </div>
+  `;
+  
+  return L.divIcon({
+    html: iconHtml,
+    className: 'profile-photo-marker',
+    iconSize: [46, 46],
+    iconAnchor: [23, 23],
+    popupAnchor: [0, -23]
   });
 };
 
@@ -372,27 +445,35 @@ const LiveTrackingMap = () => {
     // Add online users (if they have last known location)
     onlineUsers.forEach(onlineUser => {
       if (onlineUser.last_latitude && onlineUser.last_longitude) {
-        users.push({
+        const userObj = {
           id: `online_${onlineUser.id}`,
           name: onlineUser.full_name || onlineUser.username || 'משתמש',
           role: onlineUser.role,
           phone: onlineUser.phone_number,
+          photo_url: onlineUser.photo_url,
           latitude: onlineUser.last_latitude,
           longitude: onlineUser.last_longitude,
           status: 'online',
-          type: 'online'
-        });
+          type: 'online',
+          // Vehicle information
+          has_car: onlineUser.has_car,
+          car_type: onlineUser.car_type,
+          license_plate: onlineUser.license_plate,
+          car_color: onlineUser.car_color
+        };
+        users.push(userObj);
       }
     });
     
     // Add tracking users
     activeTracking.forEach(tracking => {
       if (tracking.current_latitude && tracking.current_longitude) {
-        users.push({
+        const userObj = {
           id: `tracking_${tracking.assignment_id}`,
           name: tracking.volunteer?.full_name || tracking.volunteer?.username || 'מתנדב',
           role: tracking.volunteer?.role,
           phone: tracking.volunteer?.phone_number,
+          photo_url: tracking.volunteer?.photo_url,
           latitude: tracking.current_latitude,
           longitude: tracking.current_longitude,
           status: tracking.status,
@@ -400,10 +481,12 @@ const LiveTrackingMap = () => {
           event: tracking.event,
           departure_time: tracking.departure_time,
           arrival_time: tracking.arrival_time
-        });
+        };
+        users.push(userObj);
       }
     });
     
+    console.log('DEBUG: Final users array:', users);
     return users;
   };
 
@@ -570,11 +653,22 @@ const LiveTrackingMap = () => {
                             >
                               <ListItemIcon>
                                 <Box sx={{ position: 'relative' }}>
-                                  <PersonIcon sx={{ fontSize: 32, color: getRoleColor(onlineUser.role) }} />
+                                  <Avatar 
+                                    src={onlineUser.photo_url}
+                                    sx={{ 
+                                      width: 40, 
+                                      height: 40,
+                                      bgcolor: !onlineUser.photo_url ? getRoleColor(onlineUser.role) : 'transparent',
+                                      fontSize: '1rem',
+                                      fontWeight: 600
+                                    }}
+                                  >
+                                    {!onlineUser.photo_url && (onlineUser.full_name || onlineUser.username || 'U').charAt(0).toUpperCase()}
+                                  </Avatar>
                                   <Box sx={{
                                     position: 'absolute',
-                                    bottom: -2,
-                                    right: -2,
+                                    bottom: 2,
+                                    right: 2,
                                     width: 12,
                                     height: 12,
                                     borderRadius: '50%',
@@ -665,7 +759,18 @@ const LiveTrackingMap = () => {
                             >
                               <ListItemIcon>
                                 <Box sx={{ position: 'relative' }}>
-                                  <PersonIcon sx={{ fontSize: 32, color: '#3498db' }} />
+                                  <Avatar 
+                                    src={tracking.volunteer_photo_url}
+                                    sx={{ 
+                                      width: 40, 
+                                      height: 40,
+                                      bgcolor: !tracking.volunteer_photo_url ? '#3498db' : 'transparent',
+                                      fontSize: '1rem',
+                                      fontWeight: 600
+                                    }}
+                                  >
+                                    {!tracking.volunteer_photo_url && (tracking.volunteer_name || 'U').charAt(0).toUpperCase()}
+                                  </Avatar>
                                   <Box sx={{
                                     position: 'absolute',
                                     bottom: -2,
@@ -865,9 +970,9 @@ const LiveTrackingMap = () => {
                       <Marker
                         key={userLocation.id}
                         position={[userLocation.latitude, userLocation.longitude]}
-                        icon={createCustomIcon(
-                          userLocation.type === 'online' ? '#2ecc71' : getStatusColor(userLocation.status),
-                          userLocation.type === 'tracking' ? 'tracking' : 'online',
+                        icon={createProfilePhotoIcon(
+                          userLocation.photo_url,
+                          userLocation.type === 'tracking' ? userLocation.status : userLocation.type,
                           highlightedUser === (userLocation.volunteer_id || userLocation.id)
                         )}
                       >
@@ -886,9 +991,26 @@ const LiveTrackingMap = () => {
                               ></span>
                               {userLocation.type === 'online' ? 'מחובר למערכת' : getStatusText(userLocation.status)}
                             </div>
+                            
                             {userLocation.phone && (
                               <div className="info-item">📞 {userLocation.phone}</div>
                             )}
+                            {!userLocation.phone && (
+                              <div className="info-item" style={{ color: 'orange' }}>📞 לא זמין</div>
+                            )}
+                            
+                            {/* Vehicle Information */}
+                            {userLocation.has_car && (
+                              <div className="info-item vehicle-info">
+                                🚗 {userLocation.car_type && `${userLocation.car_type}`}
+                                {userLocation.license_plate && ` | ${userLocation.license_plate}`}
+                                {userLocation.car_color && ` | ${userLocation.car_color}`}
+                              </div>
+                            )}
+                            {userLocation.has_car === false && (
+                              <div className="info-item" style={{ color: 'orange' }}>🚗 אין רכב</div>
+                            )}
+                            
                             {userLocation.event && (
                               <>
                                 <div className="info-item">

@@ -135,3 +135,64 @@
   border: 3px solid white;
   box-shadow: 0 3px 10px rgba(0,0,0,0.4);
 }
+
+/* Vehicle information styles */
+.vehicle-info {
+  margin: 8px 0;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-right: 3px solid #3498db;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.vehicle-item {
+  margin: 4px 0;
+}
+
+.vehicle-item > div:first-child {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.vehicle-details {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* Profile photo marker styling */
+.profile-photo-marker {
+  border: none !important;
+  background: transparent !important;
+}
+
+.profile-photo-marker img {
+  transition: transform 0.2s ease;
+}
+
+.profile-photo-marker:hover img {
+  transform: scale(1.1);
+}
+
+/* Enhanced pulse animation for profile photos */
+.profile-photo-marker [style*="animation: pulse"] {
+  animation: profilePulse 2s infinite !important;
+}
+
+@keyframes profilePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 4px 20px rgba(255,64,129,0.7);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+  }
+}

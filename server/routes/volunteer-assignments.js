@@ -763,7 +763,8 @@ router.get('/active-tracking', auth, async (req, res) => {
           id,
           username,
           full_name,
-          phone_number
+          phone_number,
+          photo_url
         ),
         event:event_id(
           id,
@@ -792,6 +793,7 @@ router.get('/active-tracking', auth, async (req, res) => {
         volunteer_id: assignment.volunteer_id,
         volunteer_name: assignment.volunteer?.full_name || assignment.volunteer?.username,
         volunteer_role: assignment.volunteer?.role,
+        volunteer_photo_url: assignment.volunteer?.photo_url,
         event_title: assignment.event?.title,
         event_address: assignment.event?.full_address,
         status: assignment.response_type,

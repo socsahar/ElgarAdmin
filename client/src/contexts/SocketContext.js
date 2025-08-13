@@ -50,7 +50,12 @@ export const SocketProvider = ({ children }) => {
           username: user.username,
           full_name: user.full_name,
           id_number: user.id_number,
-          photo_url: user.photo_url
+          phone_number: user.phone_number,
+          photo_url: user.photo_url,
+          has_car: user.has_car,
+          car_type: user.car_type,
+          license_plate: user.license_plate,
+          car_color: user.car_color
         });
         
         // Request current online users immediately after joining
@@ -90,7 +95,12 @@ export const SocketProvider = ({ children }) => {
           username: user.username,
           full_name: user.full_name,
           id_number: user.id_number,
-          photo_url: user.photo_url
+          phone_number: user.phone_number,
+          photo_url: user.photo_url,
+          has_car: user.has_car,
+          car_type: user.car_type,
+          license_plate: user.license_plate,
+          car_color: user.car_color
         });
         
         setTimeout(() => {

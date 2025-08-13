@@ -249,7 +249,12 @@ io.on('connection', (socket) => {
         full_name: userData.full_name,
         role: userData.role,
         id_number: userData.id_number,
+        phone_number: userData.phone_number,
         photo_url: userData.photo_url,
+        has_car: userData.has_car,
+        car_type: userData.car_type,
+        license_plate: userData.license_plate,
+        car_color: userData.car_color,
         connectedAt: new Date().toISOString()
       };
       
