@@ -669,7 +669,6 @@ const LiveTrackingMap = () => {
   const usersWithLocations = useMemo(() => {
     const users = [];
     const trackingUserIds = new Set(activeTracking.map(t => t.volunteer_id));
-    const currentUsers = new Map(); // Track current users for this render
     
     // Add online users (if they have last known location and are not currently tracking)
     onlineUsers.forEach(onlineUser => {
@@ -697,7 +696,6 @@ const LiveTrackingMap = () => {
         // Only add if coordinates are valid
         if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
           users.push(userObj);
-          currentUsers.set(userObj.volunteer_id, userObj);
         }
       }
     });
@@ -726,15 +724,19 @@ const LiveTrackingMap = () => {
         // Only add if coordinates are valid
         if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
           users.push(userObj);
-          currentUsers.set(userObj.volunteer_id, userObj);
         }
       }
     });
     
     // Add users from last known positions if they're not currently online (keep them for 2 minutes)
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const currentUserIds = new Set([
+      ...onlineUsers.map(u => u.id),
+      ...activeTracking.map(t => t.volunteer_id)
+    ]);
+    
     lastKnownUsers.forEach((lastUser, userId) => {
-      if (!currentUsers.has(userId) && lastUser.lastSeen > twoMinutesAgo) {
+      if (!currentUserIds.has(userId) && lastUser.lastSeen > twoMinutesAgo) {
         // User is temporarily offline but was seen recently, keep showing with "offline" status
         const offlineUser = {
           ...lastUser,
@@ -746,6 +748,73 @@ const LiveTrackingMap = () => {
       }
     });
     
+    console.log('DEBUG: Online users count:', onlineUsers.length);
+    console.log('DEBUG: Tracking users count:', activeTracking.length);
+    console.log('DEBUG: Final users array:', users);
+    console.log('DEBUG: Live users:', users.filter(u => u.isLive).length);
+    console.log('DEBUG: Offline users (recent):', users.filter(u => !u.isLive).length);
+    
+    return users;
+  }, [onlineUsers, activeTracking, lastKnownUsers]);
+
+  // Update last known users in a separate effect to avoid infinite loops
+  useEffect(() => {
+    const currentUsers = new Map();
+    
+    // Collect current users
+    onlineUsers.forEach(onlineUser => {
+      if (onlineUser.last_latitude && onlineUser.last_longitude) {
+        const userObj = {
+          id: `online_${onlineUser.id}`,
+          volunteer_id: onlineUser.id,
+          name: onlineUser.full_name || onlineUser.username || 'משתמש',
+          role: onlineUser.role,
+          phone: onlineUser.phone_number,
+          photo_url: onlineUser.photo_url,
+          latitude: parseFloat(onlineUser.last_latitude),
+          longitude: parseFloat(onlineUser.last_longitude),
+          status: 'online',
+          type: 'online',
+          lastSeen: new Date(),
+          isLive: true,
+          has_car: onlineUser.has_car,
+          car_type: onlineUser.car_type,
+          license_plate: onlineUser.license_plate,
+          car_color: onlineUser.car_color
+        };
+        
+        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
+          currentUsers.set(userObj.volunteer_id, userObj);
+        }
+      }
+    });
+    
+    activeTracking.forEach(tracking => {
+      if (tracking.current_latitude && tracking.current_longitude) {
+        const userObj = {
+          id: `tracking_${tracking.assignment_id}`,
+          volunteer_id: tracking.volunteer_id,
+          name: tracking.volunteer?.full_name || tracking.volunteer?.username || 'מתנדב',
+          role: tracking.volunteer?.role,
+          phone: tracking.volunteer?.phone_number,
+          photo_url: tracking.volunteer?.photo_url,
+          latitude: parseFloat(tracking.current_latitude),
+          longitude: parseFloat(tracking.current_longitude),
+          status: tracking.status,
+          type: 'tracking',
+          lastSeen: new Date(),
+          isLive: true,
+          event: tracking.event,
+          departure_time: tracking.departure_time,
+          arrival_time: tracking.arrival_time
+        };
+        
+        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
+          currentUsers.set(userObj.volunteer_id, userObj);
+        }
+      }
+    });
+
     // Update last known users map
     setLastKnownUsers(prevMap => {
       const newMap = new Map(prevMap);
@@ -766,16 +835,12 @@ const LiveTrackingMap = () => {
       
       return newMap;
     });
-    
-    console.log('DEBUG: Online users count:', onlineUsers.length);
-    console.log('DEBUG: Tracking users count:', activeTracking.length);
-    console.log('DEBUG: Final users array:', users);
-    console.log('DEBUG: Live users:', users.filter(u => u.isLive).length);
-    console.log('DEBUG: Offline users (recent):', users.filter(u => !u.isLive).length);
-    
-    // Check if highlighted user is still available, if not clear the highlight
+  }, [onlineUsers, activeTracking]);
+
+  // Check if highlighted user is still available, if not clear the highlight
+  useEffect(() => {
     if (highlightedUser) {
-      const highlightedUserExists = users.some(user => user.volunteer_id === highlightedUser);
+      const highlightedUserExists = usersWithLocations.some(user => user.volunteer_id === highlightedUser);
       
       if (!highlightedUserExists) {
         console.log('DEBUG: Highlighted user no longer available, clearing highlight');
@@ -786,9 +851,7 @@ const LiveTrackingMap = () => {
         }
       }
     }
-    
-    return users;
-  }, [onlineUsers, activeTracking, highlightedUser, highlightTimeout, lastKnownUsers]);
+  }, [usersWithLocations, highlightedUser, highlightTimeout]);
 
   if (loading && activeTracking.length === 0 && currentTab === 1) {
     return (
