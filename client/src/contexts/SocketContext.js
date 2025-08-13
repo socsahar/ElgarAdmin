@@ -37,10 +37,13 @@ export const SocketProvider = ({ children }) => {
         }
         
         const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'https://elgaradmin-backend.onrender.com';
+        console.log('🔗 Connecting to Socket.io server:', SOCKET_URL);
+        
         const newSocket = io(SOCKET_URL, {
           auth: {
             userId: user.id,
-            role: user.role
+            role: user.role,
+            username: user.username
           },
           autoConnect: true,
           reconnection: true,
@@ -57,11 +60,19 @@ export const SocketProvider = ({ children }) => {
           rememberUpgrade: false,
           maxHttpBufferSize: 1e6,
           pingTimeout: 60000,
-          pingInterval: 25000
+          pingInterval: 25000,
+          // Force new connection for troubleshooting
+          query: {
+            userId: user.id,
+            timestamp: Date.now()
+          }
         });
 
         newSocket.on('connect', () => {
           console.log('✅ Connected to server with persistent connection');
+          console.log('🆔 Socket ID:', newSocket.id);
+          console.log('🌐 Socket URL:', SOCKET_URL);
+          console.log('📊 Transport:', newSocket.io.engine.transport.name);
           setConnected(true);
           setConnecting(false);
           
@@ -83,6 +94,7 @@ export const SocketProvider = ({ children }) => {
             persistentConnection: true
           };
           
+          console.log('👤 Sending join-admin event with data:', userData);
           newSocket.emit('join-admin', userData);
           
           // Request current online users immediately after joining
@@ -90,6 +102,13 @@ export const SocketProvider = ({ children }) => {
             console.log('📡 Requesting online users after persistent connection');
             newSocket.emit('get-online-users');
           }, 1000); // Slightly longer delay for stability
+        });
+
+        newSocket.on('connect_error', (error) => {
+          console.error('❌ Socket connection error:', error);
+          console.error('🔗 Attempted URL:', SOCKET_URL);
+          console.error('🔄 Retry in 3 seconds...');
+          setConnecting(false);
         });
 
         newSocket.on('disconnect', (reason) => {

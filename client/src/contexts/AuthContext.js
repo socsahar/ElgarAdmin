@@ -19,11 +19,16 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if user is logged in on app start
     const token = localStorage.getItem('token');
+    console.log('🔑 AuthContext: Checking for saved token:', token ? 'Found' : 'Not found');
+    
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('📡 AuthContext: Verifying token with /api/auth/me');
+      
       // Verify token and get user info
       api.get('/api/auth/me')
         .then(response => {
+          console.log('✅ AuthContext: Token valid, user loaded:', response.data.user?.username);
           setUser(response.data.user);
           
           // Start location tracking for valid logged-in users
@@ -32,17 +37,18 @@ export const AuthProvider = ({ children }) => {
               locationService.requestPermission()
                 .then(() => {
                   locationService.startTracking();
-                  console.log('Location tracking started on app load');
+                  console.log('📍 Location tracking started on app load');
                 })
                 .catch(error => {
-                  console.log('Location permission denied on app load:', error.message);
+                  console.log('⚠️ Location permission denied on app load:', error.message);
                 });
             }
           } catch (error) {
-            console.log('Location service error on app load:', error);
+            console.log('❌ Location service error on app load:', error);
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.log('❌ AuthContext: Token verification failed:', error.response?.status);
           // Token is invalid
           localStorage.removeItem('token');
           delete api.defaults.headers.common['Authorization'];
@@ -58,8 +64,9 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     setLoading(true); // Show loading during login
     try {
+      console.log('🔐 AuthContext: Attempting login for:', username);
       const response = await api.post('/api/auth/login', { username, password });
-      console.log('AuthContext: Login response:', response.data);
+      console.log('✅ AuthContext: Login response:', response.data);
       
       const { token, user: userData } = response.data;
       
@@ -67,17 +74,19 @@ export const AuthProvider = ({ children }) => {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(userData);
       
+      console.log('💾 AuthContext: Token saved, user set:', userData?.username);
+      
       // Start location tracking for logged-in users
       try {
         if (locationService.isSupported()) {
           await locationService.requestPermission();
           locationService.startTracking();
-          console.log('Location tracking started for user');
+          console.log('📍 Location tracking started for user');
         } else {
-          console.log('Location tracking not supported');
+          console.log('⚠️ Location tracking not supported');
         }
       } catch (locationError) {
-        console.log('Location permission denied or error:', locationError.message);
+        console.log('❌ Location permission denied or error:', locationError.message);
         // Don't fail login if location is denied
       }
       
