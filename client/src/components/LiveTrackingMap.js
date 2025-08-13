@@ -40,6 +40,59 @@ import api from '../utils/api';
 import geocodingService from '../services/geocodingService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+
+// Add custom CSS for status indicators
+const customStyles = `
+  .status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+  }
+  .status-online {
+    background-color: #2ecc71;
+  }
+  .status-tracking {
+    background-color: #e74c3c;
+  }
+  .status-offline {
+    background-color: #95a5a6;
+  }
+  .user-popup {
+    max-width: 250px;
+  }
+  .role-chip {
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+  .info-item {
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+  .vehicle-info {
+    background-color: #f8f9fa;
+    padding: 4px 6px;
+    border-radius: 4px;
+    border-left: 3px solid #3498db;
+  }
+  .event-popup {
+    max-width: 280px;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.type = 'text/css';
+  styleSheet.innerText = customStyles;
+  document.head.appendChild(styleSheet);
+}
 import './LiveTrackingMap.css';
 
 // Fix for default markers
@@ -82,10 +135,11 @@ const createCustomIcon = (color, status, isHighlighted = false) => {
 };
 
 // Custom profile photo icon for users
-const createProfilePhotoIcon = (photoUrl, status, isHighlighted = false) => {
+const createProfilePhotoIcon = (photoUrl, status, isHighlighted = false, isLive = true) => {
   const defaultAvatar = '/api/placeholder/40/40'; // Fallback placeholder
   const borderColor = status === 'tracking' ? '#e74c3c' : 
-                     status === 'arrived' ? '#2ecc71' : '#3498db';
+                     status === 'arrived' ? '#2ecc71' : 
+                     status === 'offline' ? '#95a5a6' : '#3498db';
   
   const iconHtml = `
     <div style="
@@ -98,6 +152,7 @@ const createProfilePhotoIcon = (photoUrl, status, isHighlighted = false) => {
       background-color: #f0f0f0;
       ${isHighlighted ? 'animation: pulse 2s infinite;' : ''}
       position: relative;
+      ${!isLive ? 'opacity: 0.7; filter: grayscale(30%);' : ''}
     ">
       <img 
         src="${photoUrl || defaultAvatar}" 
@@ -140,6 +195,34 @@ const createProfilePhotoIcon = (photoUrl, status, isHighlighted = false) => {
           font-size: 10px;
           border: 2px solid white;
         ">📍</div>
+      ` : ''}
+      ${status === 'offline' ? `
+        <div style="
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          background-color: #95a5a6;
+          border-radius: 50%;
+          width: 16px;
+          height: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          border: 2px solid white;
+        ">💤</div>
+      ` : ''}
+      ${!isLive ? `
+        <div style="
+          position: absolute;
+          top: -2px;
+          left: -2px;
+          background-color: #f39c12;
+          border-radius: 50%;
+          width: 12px;
+          height: 12px;
+          border: 2px solid white;
+        "></div>
       ` : ''}
     </div>
   `;
@@ -217,6 +300,7 @@ const LiveTrackingMap = () => {
   const [focusTarget, setFocusTarget] = useState(null);
   const [highlightedUser, setHighlightedUser] = useState(null);
   const [highlightTimeout, setHighlightTimeout] = useState(null);
+  const [lastKnownUsers, setLastKnownUsers] = useState(new Map()); // Keep track of last known positions
   
   // Flag movement confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -585,6 +669,7 @@ const LiveTrackingMap = () => {
   const usersWithLocations = useMemo(() => {
     const users = [];
     const trackingUserIds = new Set(activeTracking.map(t => t.volunteer_id));
+    const currentUsers = new Map(); // Track current users for this render
     
     // Add online users (if they have last known location and are not currently tracking)
     onlineUsers.forEach(onlineUser => {
@@ -600,6 +685,8 @@ const LiveTrackingMap = () => {
           longitude: parseFloat(onlineUser.last_longitude),
           status: 'online',
           type: 'online',
+          lastSeen: new Date(),
+          isLive: true,
           // Vehicle information
           has_car: onlineUser.has_car,
           car_type: onlineUser.car_type,
@@ -610,6 +697,7 @@ const LiveTrackingMap = () => {
         // Only add if coordinates are valid
         if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
           users.push(userObj);
+          currentUsers.set(userObj.volunteer_id, userObj);
         }
       }
     });
@@ -628,6 +716,8 @@ const LiveTrackingMap = () => {
           longitude: parseFloat(tracking.current_longitude),
           status: tracking.status,
           type: 'tracking',
+          lastSeen: new Date(),
+          isLive: true,
           event: tracking.event,
           departure_time: tracking.departure_time,
           arrival_time: tracking.arrival_time
@@ -636,19 +726,56 @@ const LiveTrackingMap = () => {
         // Only add if coordinates are valid
         if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
           users.push(userObj);
+          currentUsers.set(userObj.volunteer_id, userObj);
         }
       }
+    });
+    
+    // Add users from last known positions if they're not currently online (keep them for 2 minutes)
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    lastKnownUsers.forEach((lastUser, userId) => {
+      if (!currentUsers.has(userId) && lastUser.lastSeen > twoMinutesAgo) {
+        // User is temporarily offline but was seen recently, keep showing with "offline" status
+        const offlineUser = {
+          ...lastUser,
+          isLive: false,
+          status: lastUser.type === 'tracking' ? 'offline' : 'offline'
+        };
+        users.push(offlineUser);
+        console.log(`DEBUG: Keeping offline user ${lastUser.name} from last known position`);
+      }
+    });
+    
+    // Update last known users map
+    setLastKnownUsers(prevMap => {
+      const newMap = new Map(prevMap);
+      
+      // Add/update current users
+      currentUsers.forEach((user, userId) => {
+        newMap.set(userId, user);
+      });
+      
+      // Remove users that haven't been seen for more than 5 minutes
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      newMap.forEach((user, userId) => {
+        if (user.lastSeen < fiveMinutesAgo) {
+          newMap.delete(userId);
+          console.log(`DEBUG: Removed old user ${user.name} from last known positions`);
+        }
+      });
+      
+      return newMap;
     });
     
     console.log('DEBUG: Online users count:', onlineUsers.length);
     console.log('DEBUG: Tracking users count:', activeTracking.length);
     console.log('DEBUG: Final users array:', users);
-    console.log('DEBUG: Users with valid coordinates:', users.filter(u => u.latitude && u.longitude));
+    console.log('DEBUG: Live users:', users.filter(u => u.isLive).length);
+    console.log('DEBUG: Offline users (recent):', users.filter(u => !u.isLive).length);
     
     // Check if highlighted user is still available, if not clear the highlight
     if (highlightedUser) {
-      const highlightedUserExists = users.some(user => user.volunteer_id === highlightedUser) ||
-                                   onlineUsers.some(user => user.id === highlightedUser);
+      const highlightedUserExists = users.some(user => user.volunteer_id === highlightedUser);
       
       if (!highlightedUserExists) {
         console.log('DEBUG: Highlighted user no longer available, clearing highlight');
@@ -661,7 +788,7 @@ const LiveTrackingMap = () => {
     }
     
     return users;
-  }, [onlineUsers, activeTracking, highlightedUser, highlightTimeout]);
+  }, [onlineUsers, activeTracking, highlightedUser, highlightTimeout, lastKnownUsers]);
 
   if (loading && activeTracking.length === 0 && currentTab === 1) {
     return (
@@ -722,6 +849,15 @@ const LiveTrackingMap = () => {
                     size="small"
                     sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}
                   />
+                  {usersWithLocations.filter(u => !u.isLive && u.type === 'online').length > 0 && (
+                    <Chip 
+                      label={`${usersWithLocations.filter(u => !u.isLive && u.type === 'online').length} מנותקים זמנית`}
+                      color="warning"
+                      variant="outlined"
+                      size="small"
+                      sx={{ fontSize: { xs: '0.7rem', md: '0.75rem' } }}
+                    />
+                  )}
                   <Chip 
                     label={`${activeTracking.length} במשימות`}
                     color="primary"
@@ -761,7 +897,7 @@ const LiveTrackingMap = () => {
                       }}>
                         <OnlineIcon sx={{ fontSize: { xs: 14, md: 16 } }} />
                         <span style={{ fontSize: 'inherit' }}>
-                          מחוברים ({onlineUsers.length})
+                          מחוברים ({onlineUsers.length + usersWithLocations.filter(u => !u.isLive && u.type === 'online').length})
                         </span>
                       </Box>
                     } 
@@ -809,7 +945,21 @@ const LiveTrackingMap = () => {
                       </Box>
                     ) : (
                       <List dense>
-                        {onlineUsers.map((onlineUser, index) => (
+                        {onlineUsers.concat(
+                          usersWithLocations
+                            .filter(u => !u.isLive && u.type === 'online')
+                            .map(u => ({
+                              id: u.volunteer_id,
+                              full_name: u.name,
+                              username: u.name,
+                              role: u.role,
+                              phone_number: u.phone,
+                              photo_url: u.photo_url,
+                              last_latitude: u.latitude,
+                              last_longitude: u.longitude,
+                              isOffline: true
+                            }))
+                        ).map((onlineUser, index) => (
                           <React.Fragment key={onlineUser.id}>
                             <ListItem 
                               sx={{ 
@@ -818,7 +968,8 @@ const LiveTrackingMap = () => {
                                 borderRadius: 2,
                                 cursor: 'pointer',
                                 backgroundColor: highlightedUser === onlineUser.id ? '#e3f2fd' : 'transparent',
-                                '&:hover': { backgroundColor: '#f8f9fa' }
+                                '&:hover': { backgroundColor: '#f8f9fa' },
+                                opacity: onlineUser.isOffline ? 0.7 : 1
                               }}
                               onClick={() => focusOnUser(onlineUser)}
                             >
@@ -831,7 +982,8 @@ const LiveTrackingMap = () => {
                                       height: 40,
                                       bgcolor: !onlineUser.photo_url ? getRoleColor(onlineUser.role) : 'transparent',
                                       fontSize: '1rem',
-                                      fontWeight: 600
+                                      fontWeight: 600,
+                                      filter: onlineUser.isOffline ? 'grayscale(30%)' : 'none'
                                     }}
                                   >
                                     {!onlineUser.photo_url && (onlineUser.full_name || onlineUser.username || 'U').charAt(0).toUpperCase()}
@@ -843,9 +995,21 @@ const LiveTrackingMap = () => {
                                     width: 12,
                                     height: 12,
                                     borderRadius: '50%',
-                                    backgroundColor: '#2ecc71',
+                                    backgroundColor: onlineUser.isOffline ? '#95a5a6' : '#2ecc71',
                                     border: '2px solid white'
                                   }} />
+                                  {onlineUser.isOffline && (
+                                    <Box sx={{
+                                      position: 'absolute',
+                                      top: 0,
+                                      left: 0,
+                                      width: 12,
+                                      height: 12,
+                                      borderRadius: '50%',
+                                      backgroundColor: '#f39c12',
+                                      border: '2px solid white'
+                                    }} />
+                                  )}
                                 </Box>
                               </ListItemIcon>
                               
@@ -861,13 +1025,14 @@ const LiveTrackingMap = () => {
                                         size="small"
                                         sx={{
                                           backgroundColor: getRoleColor(onlineUser.role),
-                                          color: 'white'
+                                          color: 'white',
+                                          opacity: onlineUser.isOffline ? 0.7 : 1
                                         }}
                                       />
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <OnlineIcon sx={{ fontSize: 12, color: '#2ecc71' }} />
+                                        <OnlineIcon sx={{ fontSize: 12, color: onlineUser.isOffline ? '#95a5a6' : '#2ecc71' }} />
                                         <Typography variant="caption" color="text.secondary">
-                                          מחובר
+                                          {onlineUser.isOffline ? 'מנותק זמנית' : 'מחובר'}
                                         </Typography>
                                       </Box>
                                       {onlineUser.phone_number && (
@@ -879,7 +1044,7 @@ const LiveTrackingMap = () => {
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                           <FocusIcon sx={{ fontSize: 12, color: '#2196f3' }} />
                                           <Typography variant="caption" color="#2196f3">
-                                            לחץ למיקום במפה
+                                            {onlineUser.isOffline ? 'מיקום אחרון' : 'לחץ למיקום במפה'}
                                           </Typography>
                                         </Box>
                                       )}
@@ -1144,7 +1309,8 @@ const LiveTrackingMap = () => {
                         icon={createProfilePhotoIcon(
                           userLocation.photo_url,
                           userLocation.type === 'tracking' ? userLocation.status : userLocation.type,
-                          highlightedUser === userLocation.volunteer_id
+                          highlightedUser === userLocation.volunteer_id,
+                          userLocation.isLive
                         )}
                       >
                         <Popup>
@@ -1158,9 +1324,12 @@ const LiveTrackingMap = () => {
                             </div>
                             <div className="info-item">
                               <span 
-                                className={`status-indicator ${userLocation.type === 'online' ? 'status-online' : 'status-tracking'}`}
+                                className={`status-indicator ${userLocation.isLive ? (userLocation.type === 'online' ? 'status-online' : 'status-tracking') : 'status-offline'}`}
                               ></span>
-                              {userLocation.type === 'online' ? 'מחובר למערכת' : getStatusText(userLocation.status)}
+                              {userLocation.isLive ? 
+                                (userLocation.type === 'online' ? 'מחובר למערכת' : getStatusText(userLocation.status)) :
+                                'מנותק זמנית (מיקום אחרון)'
+                              }
                             </div>
                             
                             {userLocation.phone && (
