@@ -40,6 +40,7 @@ import api from '../utils/api';
 import geocodingService from '../services/geocodingService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+import './LiveTrackingMap.css';
 
 // Add custom CSS for status indicators
 const customStyles = `
@@ -93,7 +94,6 @@ if (typeof document !== 'undefined') {
   styleSheet.innerText = customStyles;
   document.head.appendChild(styleSheet);
 }
-import './LiveTrackingMap.css';
 
 // Fix for default markers
 delete L.Icon.Default.prototype._getIconUrl;
