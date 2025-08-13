@@ -44,14 +44,20 @@ export const SocketProvider = ({ children }) => {
           },
           autoConnect: true,
           reconnection: true,
-          reconnectionDelay: 2000, // Increased delay to prevent rapid reconnections
-          reconnectionAttempts: 10, // More attempts for better reliability
-          timeout: 30000, // Longer timeout
-          forceNew: false, // Don't force new connection unnecessarily
-          transports: ['websocket', 'polling'], // Multiple transport options
+          reconnectionDelay: 3000, // Longer delay for Render's infrastructure
+          reconnectionAttempts: 15, // More attempts for free tier
+          timeout: 60000, // Much longer timeout for Render
+          forceNew: false,
+          // Use polling first for better Render compatibility
+          transports: ['polling', 'websocket'],
           upgrade: true,
-          // Prevent disconnection on page navigation
-          closeOnBeforeunload: false
+          // Render-specific optimizations
+          closeOnBeforeunload: false,
+          // Additional options for Render stability
+          rememberUpgrade: false,
+          maxHttpBufferSize: 1e6,
+          pingTimeout: 60000,
+          pingInterval: 25000
         });
 
         newSocket.on('connect', () => {

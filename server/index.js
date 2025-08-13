@@ -224,7 +224,17 @@ const io = socketIo(server, {
     ].filter(Boolean),
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  // Render optimization settings
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  maxHttpBufferSize: 1e6,
+  // Better handling for Render's infrastructure
+  upgradeTimeout: 30000,
+  // Allow more time for connections on free tier
+  connectTimeout: 60000
 });
 
 // Make io instance available to routes
