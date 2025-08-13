@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -398,10 +398,27 @@ const LiveTrackingMap = () => {
   useEffect(() => {
     loadActiveTracking();
     
-    // Refresh every 30 seconds
-    const interval = setInterval(loadActiveTracking, 30000);
+    // Refresh every 10 seconds for better real-time tracking
+    const interval = setInterval(loadActiveTracking, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Debug effect to track onlineUsers changes
+  useEffect(() => {
+    console.log('🔄 Online users changed:', onlineUsers);
+    console.log('🔄 Online users count:', onlineUsers.length);
+    const usersWithLocation = onlineUsers.filter(u => u.last_latitude && u.last_longitude);
+    console.log('🔄 Online users with location:', usersWithLocation);
+    console.log('🔄 Online users with valid coords:', usersWithLocation.filter(u => 
+      !isNaN(parseFloat(u.last_latitude)) && !isNaN(parseFloat(u.last_longitude))
+    ));
+  }, [onlineUsers]);
+
+  // Debug effect to track activeTracking changes
+  useEffect(() => {
+    console.log('🔄 Active tracking changed:', activeTracking);
+    console.log('🔄 Active tracking count:', activeTracking.length);
+  }, [activeTracking]);
 
   const loadActiveTracking = async () => {
     try {
@@ -442,8 +459,25 @@ const LiveTrackingMap = () => {
         !isNaN(parseFloat(e.event_longitude))
       ));
       
-      setActiveTracking(tracking);
-      setActiveEvents(events);
+      // Only update state if data actually changed to prevent unnecessary re-renders
+      setActiveTracking(prevTracking => {
+        const trackingChanged = JSON.stringify(prevTracking) !== JSON.stringify(tracking);
+        if (trackingChanged) {
+          console.log('🔄 Active tracking data changed, updating...');
+          return tracking;
+        }
+        return prevTracking;
+      });
+      
+      setActiveEvents(prevEvents => {
+        const eventsChanged = JSON.stringify(prevEvents) !== JSON.stringify(events);
+        if (eventsChanged) {
+          console.log('🔄 Active events data changed, updating...');
+          return events;
+        }
+        return prevEvents;
+      });
+      
       setError(null);
     } catch (err) {
       console.error('Error loading active tracking and events:', err);
@@ -455,25 +489,29 @@ const LiveTrackingMap = () => {
 
   // Function to focus on a user when clicked in the list
   const focusOnUser = (userItem) => {
-    let lat, lng;
+    let lat, lng, userId;
     
     // Check if it's an online user or active tracking
     if (userItem.last_latitude && userItem.last_longitude) {
       lat = parseFloat(userItem.last_latitude);
       lng = parseFloat(userItem.last_longitude);
+      userId = userItem.id;
     } else if (userItem.current_latitude && userItem.current_longitude) {
       lat = parseFloat(userItem.current_latitude);
       lng = parseFloat(userItem.current_longitude);
+      userId = userItem.volunteer_id;
     }
     
     if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
       setFocusTarget({ lat, lng });
-      setHighlightedUser(userItem.id || userItem.volunteer_id);
+      setHighlightedUser(userId);
       
       // Clear highlight after 5 seconds
       setTimeout(() => {
         setHighlightedUser(null);
       }, 5000);
+    } else {
+      console.log('DEBUG: Invalid coordinates for user focus:', { lat, lng, userItem });
     }
   };
 
@@ -525,21 +563,23 @@ const LiveTrackingMap = () => {
     setCurrentTab(newValue);
   };
 
-  // Get all users with locations for map
-  const getUsersWithLocations = () => {
+  // Get all users with locations for map - memoized to prevent unnecessary recalculations
+  const usersWithLocations = useMemo(() => {
     const users = [];
+    const trackingUserIds = new Set(activeTracking.map(t => t.volunteer_id));
     
-    // Add online users (if they have last known location)
+    // Add online users (if they have last known location and are not currently tracking)
     onlineUsers.forEach(onlineUser => {
-      if (onlineUser.last_latitude && onlineUser.last_longitude) {
+      if (onlineUser.last_latitude && onlineUser.last_longitude && !trackingUserIds.has(onlineUser.id)) {
         const userObj = {
           id: `online_${onlineUser.id}`,
+          volunteer_id: onlineUser.id,
           name: onlineUser.full_name || onlineUser.username || 'משתמש',
           role: onlineUser.role,
           phone: onlineUser.phone_number,
           photo_url: onlineUser.photo_url,
-          latitude: onlineUser.last_latitude,
-          longitude: onlineUser.last_longitude,
+          latitude: parseFloat(onlineUser.last_latitude),
+          longitude: parseFloat(onlineUser.last_longitude),
           status: 'online',
           type: 'online',
           // Vehicle information
@@ -548,36 +588,46 @@ const LiveTrackingMap = () => {
           license_plate: onlineUser.license_plate,
           car_color: onlineUser.car_color
         };
-        users.push(userObj);
+        
+        // Only add if coordinates are valid
+        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
+          users.push(userObj);
+        }
       }
     });
     
-    // Add tracking users
+    // Add tracking users (priority over online status)
     activeTracking.forEach(tracking => {
       if (tracking.current_latitude && tracking.current_longitude) {
         const userObj = {
           id: `tracking_${tracking.assignment_id}`,
+          volunteer_id: tracking.volunteer_id,
           name: tracking.volunteer?.full_name || tracking.volunteer?.username || 'מתנדב',
           role: tracking.volunteer?.role,
           phone: tracking.volunteer?.phone_number,
           photo_url: tracking.volunteer?.photo_url,
-          latitude: tracking.current_latitude,
-          longitude: tracking.current_longitude,
+          latitude: parseFloat(tracking.current_latitude),
+          longitude: parseFloat(tracking.current_longitude),
           status: tracking.status,
           type: 'tracking',
           event: tracking.event,
           departure_time: tracking.departure_time,
           arrival_time: tracking.arrival_time
         };
-        users.push(userObj);
+        
+        // Only add if coordinates are valid
+        if (!isNaN(userObj.latitude) && !isNaN(userObj.longitude)) {
+          users.push(userObj);
+        }
       }
     });
     
+    console.log('DEBUG: Online users count:', onlineUsers.length);
+    console.log('DEBUG: Tracking users count:', activeTracking.length);
     console.log('DEBUG: Final users array:', users);
+    console.log('DEBUG: Users with valid coordinates:', users.filter(u => u.latitude && u.longitude));
     return users;
-  };
-
-  const usersWithLocations = getUsersWithLocations();
+  }, [onlineUsers, activeTracking]);
 
   if (loading && activeTracking.length === 0 && currentTab === 1) {
     return (
@@ -1060,7 +1110,7 @@ const LiveTrackingMap = () => {
                         icon={createProfilePhotoIcon(
                           userLocation.photo_url,
                           userLocation.type === 'tracking' ? userLocation.status : userLocation.type,
-                          highlightedUser === (userLocation.volunteer_id || userLocation.id)
+                          highlightedUser === userLocation.volunteer_id
                         )}
                       >
                         <Popup>
