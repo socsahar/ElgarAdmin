@@ -699,6 +699,56 @@ router.get('/events', auth, async (req, res) => {
 
 /**
  * @swagger
+ * /api/admin/events/active-with-coordinates:
+ *   get:
+ *     summary: Get active events with GPS coordinates for map display
+ *     tags: [Admin, Events]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get('/events/active-with-coordinates', auth, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('events')
+      .select(`
+        id,
+        title,
+        full_address,
+        event_latitude,
+        event_longitude,
+        event_status,
+        license_plate,
+        car_model,
+        car_color,
+        car_status,
+        created_at,
+        creator:created_by_id(id, username, full_name)
+      `)
+      .in('event_status', ['דווח', 'פעיל', 'הוקצה', 'בטיפול']) // Only active events
+      .not('event_latitude', 'is', null)
+      .not('event_longitude', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('GET /events/active-with-coordinates - Supabase error:', error);
+      throw error;
+    }
+    
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching active events with coordinates:', error);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/admin/events:
  *   post:
  *     summary: Create a new event
@@ -744,7 +794,10 @@ router.post('/events', auth, async (req, res) => {
       car_model,
       car_color,
       car_status,
-      status = 'דווח' 
+      status = 'דווח',
+      event_status,
+      event_latitude,
+      event_longitude
     } = req.body;
     
     const insertData = {
@@ -755,11 +808,19 @@ router.post('/events', auth, async (req, res) => {
       car_model,
       car_color,
       car_status,
-      event_status: status, // Changed from 'status' to 'event_status' to match schema
+      event_status: event_status || status || 'דווח', // Use event_status if provided, fallback to status, then default
       created_by_id: req.user.id, // Changed from 'creator_id' to 'created_by_id' to match schema
       started_at: new Date().toISOString(), // Add started_at timestamp
       created_at: new Date().toISOString()
     };
+
+    // Add coordinates if provided
+    if (event_latitude !== undefined && event_latitude !== null && event_latitude !== '') {
+      insertData.event_latitude = parseFloat(event_latitude);
+    }
+    if (event_longitude !== undefined && event_longitude !== null && event_longitude !== '') {
+      insertData.event_longitude = parseFloat(event_longitude);
+    }
     
     const { data, error } = await supabaseAdmin
       .from('events')
@@ -843,7 +904,9 @@ router.put('/events/:id', auth, async (req, res) => {
       car_model,
       car_color,
       car_status,
-      status 
+      status,
+      event_latitude,
+      event_longitude
     } = req.body;
     
     const updateData = {
@@ -857,6 +920,14 @@ router.put('/events/:id', auth, async (req, res) => {
       event_status: status, // Changed from 'status' to 'event_status' to match schema
       updated_at: new Date().toISOString()
     };
+
+    // Add coordinates if provided
+    if (event_latitude !== undefined) {
+      updateData.event_latitude = event_latitude;
+    }
+    if (event_longitude !== undefined) {
+      updateData.event_longitude = event_longitude;
+    }
     
     const { data, error } = await supabaseAdmin
       .from('events')
